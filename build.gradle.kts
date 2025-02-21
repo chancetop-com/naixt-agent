@@ -2,6 +2,7 @@ apply(plugin = "project")
 
 plugins {
     `java-library`
+    `maven-publish`
 }
 
 repositories {
@@ -10,15 +11,9 @@ repositories {
 
 subprojects {
     group = "com.chancetop"
-    version = "1.0.0"
+    version = "1.0.1"
 
     repositories {
-        maven {
-            url = uri("https://maven.codelibs.org/")
-            content {
-                includeGroup("org.codelibs.elasticsearch.module")
-            }
-        }
         maven {
             url = uri("https://neowu.github.io/maven-repo/")
             content {
@@ -47,6 +42,23 @@ subprojects {
     configurations.all {
         resolutionStrategy {
             force("com.squareup.okio:okio:3.2.0")
+        }
+    }
+
+    if (project.name.endsWith("agent-service-interface")) {
+        apply(plugin = "maven-publish")
+        publishing {
+            publications {
+                create<MavenPublication>("maven") {
+                    from(components["java"])
+                }
+            }
+
+            repositories {
+                maven {
+                    url = uri(System.getenv("MAVEN_REPO") ?: "${System.getProperty("user.home")}/.m2/repository")
+                }
+            }
         }
     }
 }
@@ -81,5 +93,11 @@ project(":agent-service") {
         implementation(project(":agent-service-interface"))
         implementation("com.chancetop:core-ai:${Versions.CORE_AI_VERSION}")
         implementation("com.chancetop:language-server-library:${Versions.CORE_AI_VERSION}")
+    }
+}
+
+project(":agent-service-interface") {
+    dependencies {
+        implementation("com.google.code.gson:gson:2.12.1")
     }
 }

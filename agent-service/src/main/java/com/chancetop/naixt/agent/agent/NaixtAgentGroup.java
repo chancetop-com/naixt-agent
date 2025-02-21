@@ -2,13 +2,13 @@ package com.chancetop.naixt.agent.agent;
 
 import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
-import com.chancetop.naixt.agent.service.LanguageServerToolingService;
 import ai.core.llm.LLMProvider;
 import ai.core.mcp.client.MCPClientService;
 import ai.core.mcp.client.MCPServerConfig;
 import ai.core.persistence.PersistenceProvider;
 import ai.core.tool.function.Functions;
 import ai.core.tool.mcp.MCPToolCalls;
+import com.chancetop.naixt.agent.service.LanguageServerToolingService;
 
 import java.util.List;
 

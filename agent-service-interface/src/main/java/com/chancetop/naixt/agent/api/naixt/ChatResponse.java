@@ -1,5 +1,6 @@
 package com.chancetop.naixt.agent.api.naixt;
 
+import com.google.gson.annotations.SerializedName;
 import core.framework.api.json.Property;
 
 /**
@@ -12,6 +13,7 @@ public class ChatResponse {
         return response;
     }
 
+    @SerializedName("text")
     @Property(name = "text")
     public String text;
 }
