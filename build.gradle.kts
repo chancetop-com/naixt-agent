@@ -25,6 +25,12 @@ subprojects {
                 includeGroupByRegex("core\\.framework.*")
             }
         }
+        maven {
+            url = uri("https://chancetop-com.github.io/maven-repo/")
+            content {
+                includeGroupByRegex("com\\.chancetop.*")
+            }
+        }
     }
 
     configure(subprojects.filter { (it.name.endsWith("-interface") || it.name.endsWith("-interface-v2")) }) {
