@@ -10,6 +10,10 @@ import core.framework.api.web.service.Path;
  */
 public interface NaixtAgentWebService {
     @PUT
-    @Path("/naixt/chat")
+    @Path("/naixt/agent/chat")
     ChatResponse chat(NaixtChatRequest request);
+
+    @PUT
+    @Path("/naixt/agent/clear")
+    void clear();
 }

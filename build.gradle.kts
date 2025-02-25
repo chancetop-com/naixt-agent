@@ -6,12 +6,13 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
 subprojects {
     group = "com.chancetop"
-    version = "1.0.1"
+    version = "1.0.3-SNAPSHOT"
 
     repositories {
         maven {
@@ -93,11 +94,5 @@ project(":agent-service") {
         implementation(project(":agent-service-interface"))
         implementation("com.chancetop:core-ai:${Versions.CORE_AI_VERSION}")
         implementation("com.chancetop:language-server-library:${Versions.CORE_AI_VERSION}")
-    }
-}
-
-project(":agent-service-interface") {
-    dependencies {
-        implementation("com.google.code.gson:gson:2.12.1")
     }
 }

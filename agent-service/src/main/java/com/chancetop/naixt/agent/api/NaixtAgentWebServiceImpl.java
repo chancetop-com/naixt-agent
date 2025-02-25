@@ -2,7 +2,7 @@ package com.chancetop.naixt.agent.api;
 
 import com.chancetop.naixt.agent.api.naixt.ChatResponse;
 import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
-import com.chancetop.naixt.agent.service.NaixtService;
+import com.chancetop.naixt.agent.service.NaixtAgentService;
 import core.framework.inject.Inject;
 
 /**
@@ -10,10 +10,15 @@ import core.framework.inject.Inject;
  */
 public class NaixtAgentWebServiceImpl implements NaixtAgentWebService {
     @Inject
-    NaixtService naixtService;
+    NaixtAgentService naixtAgentService;
 
     @Override
     public ChatResponse chat(NaixtChatRequest request) {
-        return naixtService.chat(request);
+        return naixtAgentService.chat(request);
+    }
+
+    @Override
+    public void clear() {
+        naixtAgentService.clear();
     }
 }

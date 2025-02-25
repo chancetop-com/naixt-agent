@@ -23,4 +23,25 @@ public class IdeUtils {
             return "";
         }
     }
+
+    public static String toWorkspaceRelativePath(String workspacePath, String currentFilePath) {
+        if (Strings.isBlank(workspacePath) || Strings.isBlank(currentFilePath)) return currentFilePath;
+
+        var absolutePath = Paths.get(currentFilePath);
+        var basePath = Paths.get(workspacePath);
+
+        try {
+            absolutePath = absolutePath.toRealPath();
+            basePath = basePath.toRealPath();
+        } catch (IOException e) {
+            LOGGER.warning("Failed to resolve real path.");
+            return currentFilePath;
+        }
+
+        if (!absolutePath.startsWith(basePath)) {
+            return currentFilePath;
+        }
+
+        return basePath.relativize(absolutePath).toString();
+    }
 }
