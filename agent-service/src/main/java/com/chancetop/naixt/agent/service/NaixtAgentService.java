@@ -74,6 +74,9 @@ public class NaixtAgentService {
                     .llmProvider(liteLLMProvider).build();
             this.workspacePath = request.workspacePath;
         }
+        if (!workspacePath.equals(request.workspacePath)) {
+            this.workspacePath = request.workspacePath;
+        }
         var context = new HashMap<String, Object>();
         context.put("current_file_path", IdeUtils.toWorkspaceRelativePath(request.workspacePath, request.currentFilePath));
         context.put("current_file_content", IdeUtils.getFileContent(request.currentFilePath));
