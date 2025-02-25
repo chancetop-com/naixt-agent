@@ -1,5 +1,6 @@
 package com.chancetop.naixt.agent.api;
 
+import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
 import com.chancetop.naixt.agent.api.naixt.ChatResponse;
 import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
 import com.chancetop.naixt.agent.service.NaixtAgentService;
@@ -20,5 +21,10 @@ public class NaixtAgentWebServiceImpl implements NaixtAgentWebService {
     @Override
     public void clear() {
         naixtAgentService.clear();
+    }
+
+    @Override
+    public void approved(ApproveChangeRequest request) {
+        naixtAgentService.approved(request);
     }
 }

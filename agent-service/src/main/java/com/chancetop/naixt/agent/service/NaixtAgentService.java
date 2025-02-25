@@ -2,6 +2,7 @@ package com.chancetop.naixt.agent.service;
 
 import ai.core.agent.Agent;
 import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
+import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
 import com.chancetop.naixt.agent.api.naixt.ChatResponse;
 import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
 import ai.core.llm.providers.LiteLLMProvider;
@@ -18,6 +19,13 @@ public class NaixtAgentService {
     @Inject
     LiteLLMProvider liteLLMProvider;
     private Agent agent;
+    private String workspacePath;
+
+    public void initWorkspace(String workspacePath) {
+        this.workspacePath = workspacePath;
+        // todo
+        // langServerService.initWorkspace(workspacePath);
+    }
 
     public ChatResponse chat(NaixtChatRequest request) {
         if (agent == null) {
@@ -48,7 +56,7 @@ public class NaixtAgentService {
                       "partial": false
                     }
                     Other requirements:
-                    Your need to analyze the user's query.
+                    Your need to analyze the user's query, you should not always assume that the user wants to generate code.
                     If the user hopes for code generation, then generate the code according to the Output requirements.
                     If it is not code-related, still include your response in the "planning" key.
                     """)
@@ -64,6 +72,7 @@ public class NaixtAgentService {
                     .model(request.model)
                     .formatter(new DefaultJsonFormatter())
                     .llmProvider(liteLLMProvider).build();
+            this.workspacePath = request.workspacePath;
         }
         var context = new HashMap<String, Object>();
         context.put("current_file_path", IdeUtils.toWorkspaceRelativePath(request.workspacePath, request.currentFilePath));
@@ -77,5 +86,9 @@ public class NaixtAgentService {
     public void clear() {
         if (agent == null) return;
         agent.clearShortTermMemory();
+    }
+
+    public void approved(ApproveChangeRequest request) {
+        request.fileContents.forEach(fileContent -> IdeUtils.doChange(workspacePath, fileContent));
     }
 }

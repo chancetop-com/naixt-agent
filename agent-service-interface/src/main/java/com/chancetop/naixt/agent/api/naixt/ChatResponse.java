@@ -19,24 +19,4 @@ public class ChatResponse {
 
     @Property(name = "file_contents")
     public List<FileContent> fileContents;
-
-    public enum Action {
-        @Property(name = "ADD")
-        ADD,
-        @Property(name = "DELETE")
-        DELETE,
-        @Property(name = "MODIFY")
-        MODIFY
-    }
-
-    public static class FileContent {
-        @Property(name = "content")
-        public String content;
-
-        @Property(name = "file_path")
-        public String filePath;
-
-        @Property(name = "action")
-        public Action action;
-    }
 }
