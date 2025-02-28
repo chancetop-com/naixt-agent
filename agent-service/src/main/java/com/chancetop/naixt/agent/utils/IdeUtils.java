@@ -59,7 +59,16 @@ public class IdeUtils {
             return;
         }
         try {
-            Files.writeString(Paths.get(toAbsolutePath(workspace, fileContent.filePath)), fileContent.content, StandardCharsets.UTF_8);
+            var path = Paths.get(toAbsolutePath(workspace, fileContent.filePath));
+            if (fileContent.action == Action.ADD) {
+                if (path.getParent() != null) {
+                    Files.createDirectories(path.getParent());
+                }
+                if (!Files.exists(path)) {
+                    Files.createFile(path);
+                }
+            }
+            Files.writeString(path, fileContent.content, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -67,12 +76,61 @@ public class IdeUtils {
 
     private static String toAbsolutePath(String workspace, String filePath) {
         Path absolutePath;
-        if (Paths.get(filePath).isAbsolute()) {
-            absolutePath = Paths.get(filePath);
+        var path = Paths.get(filePath);
+        if (path.isAbsolute()) {
+            absolutePath = path;
         } else {
             var workspacePath = Paths.get(workspace);
             absolutePath = workspacePath.resolve(filePath).normalize();
         }
         return absolutePath.toString();
+    }
+
+    public static String getWorkspaceFileTree(String workspace) {
+        if (Strings.isBlank(workspace)) return "";
+
+        var rootPath = Paths.get(workspace);
+        if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+            return "Invalid workspace directory.";
+        }
+
+        try {
+            return buildJavaFileTree(rootPath) + "\n";
+        } catch (IOException e) {
+            LOGGER.warning("Failed to read workspace directory: " + workspace);
+            return "Error reading workspace directory.";
+        }
+    }
+
+    private static String buildJavaFileTree(Path current) throws IOException {
+        var treeBuilder = new StringBuilder();
+
+        try (var stream = Files.newDirectoryStream(current, entry -> Files.isRegularFile(entry) && filterFile(entry) || Files.isDirectory(entry))) {
+            for (var entry : stream) {
+                if (isGitIgnore(entry)) continue;
+                if (Files.isRegularFile(entry)) {
+                    treeBuilder.append(entry).append('\n');
+                }
+                if (Files.isDirectory(entry)) {
+                    var subTree = buildJavaFileTree(entry);
+                    if (subTree.isEmpty()) continue;
+                    treeBuilder.append(subTree).append('\n');
+                }
+            }
+        }
+
+        return treeBuilder.isEmpty() ? "" : treeBuilder.toString().replaceAll("\n\\s*\\n", "\n");
+    }
+
+    private static boolean isGitIgnore(Path path) {
+        var entry = path.getFileName();
+        return entry.toString().startsWith(".")
+                || "build".equals(entry.toString())
+                || "gradle".equals(entry.toString())
+                || "bin".equals(entry.toString());
+    }
+
+    private static boolean filterFile(Path entry) {
+        return entry.toString().endsWith(".java") || entry.toString().endsWith(".kt") || entry.toString().endsWith(".properties");
     }
 }

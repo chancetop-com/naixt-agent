@@ -9,6 +9,9 @@ import java.util.List;
  * @author stephen
  */
 public class ApproveChangeRequest {
+    @Property(name = "workspace_path")
+    public String workspacePath;
+
     @NotNull
     @Property(name = "file_contents")
     public List<FileContent> fileContents = List.of();

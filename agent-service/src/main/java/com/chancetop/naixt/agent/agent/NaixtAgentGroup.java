@@ -41,18 +41,7 @@ public class NaixtAgentGroup {
                 .promptTemplate("")
                 .toolCalls(Functions.from(languageServerToolingService))
                 .llmProvider(llmProvider).build();
-        var codingAgent = Agent.builder()
-                .name("coding-agent")
-                .description("coding-agent is an agent that help user to write CoreNG based code.")
-                .systemPrompt("""
-                        You are an assistant that helps users write code.
-                        You have a highly skilled software engineer with extensive experience in Java, TypeScript, JavaScript and HTML/CSS.
-                        You have a strong understanding of CoreNG, CoreFE, CoreAI framework.
-                        You have extensive knowledge in software development principles, design patterns, and best practices.
-                        """)
-                .promptTemplate("")
-                .model("gpt-4o-2024-08-06-CoreNGCodingBeta")
-                .llmProvider(llmProvider).build();
+        var codingAgentGroup = CodingAgentGroup.of(llmProvider, persistenceProvider, "gpt-4o-2024-08-06-CoreNGCodingBeta");
         var gitAgent = Agent.builder()
                 .name("git-agent")
                 .description("git-agent is an agent that help user to manage git repository.")
@@ -61,7 +50,7 @@ public class NaixtAgentGroup {
                 .toolCalls(MCPToolCalls.from(new MCPClientService(new MCPServerConfig("localhost", 8080))))
                 .llmProvider(llmProvider).build();
         return AgentGroup.builder()
-                .agents(List.of(requirementAgent, languageServerAgent, codingAgent, gitAgent))
+                .agents(List.of(requirementAgent, languageServerAgent, codingAgentGroup, gitAgent))
                 .name("naixt-agent-group")
                 .description("naixt-agent-group is a group of agents that help user to write code.")
                 .persistenceProvider(persistenceProvider)
