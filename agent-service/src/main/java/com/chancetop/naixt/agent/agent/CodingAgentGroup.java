@@ -2,11 +2,13 @@ package com.chancetop.naixt.agent.agent;
 
 import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
+import ai.core.agent.Node;
 import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
 import ai.core.tool.function.Functions;
 import com.chancetop.naixt.agent.service.WorkspaceToolingService;
+import core.framework.util.Strings;
 
 import java.util.List;
 
@@ -14,6 +16,40 @@ import java.util.List;
  * @author stephen
  */
 public class CodingAgentGroup {
+    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents) {
+        return Agent.builder()
+                .name("moderator-agent")
+                .description("moderator of a role play game to solve task by guide the conversation and choose the next speaker agent")
+                .systemPrompt(Strings.format("""
+                        You are in a role play game to solve task by guide the conversation and choose the next speaker agent, the goal is:
+                        {}.
+                        The following agents list are available:
+                        {}.
+                        You need carefully review the capabilities of each agent, including the inputs and outputs of their functions to planning the conversation and choose the next agent to play.
+                        Read the conversation, then select the next agent from the agents list to play.
+                        Please do not make decisions for the user. Leave it to the user-input-agent to handle.
+                        Return a json that contain the agent's name and a query generated for the selected agent.
+                        Read the conversation. Then select the next agent from the agents list to play.
+                        Please generate the detailed query for the next step, including all necessary context.
+                        If you think we already finish the task, please return the next_step valued: TERMINATE.
+                        Return a json that contain your planning steps and current step and the agent's name and a string query generated for the selected agent, for example:
+                        {"planning": "1. step1; 2. step2", "next_step": "step2", "name": "order-expert-agent", "query": "list the user's most recent orders"}.
+                        Only return the json, do not print anything else.
+                        """, goal, AgentGroup.AgentsInfo.agentsInfo(agents)))
+                .promptTemplate("""
+                        Workspace path: {{workspace_path}}
+                        Workspace file tree: {{workspace_file_tree}}
+                        User current editor file {{current_file_path}}'s content:
+                        ```
+                        {{current_file_content}}
+                        ```
+                        User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
+                        Previous agent output/raw input:
+                        """)
+                .formatter(new DefaultJsonFormatter())
+                .llmProvider(llmProvider).build();
+    }
+
     public static Agent codingAgent(LLMProvider llmProvider, String model) {
         return Agent.builder()
                 .name("coding-agent")
@@ -51,12 +87,12 @@ public class CodingAgentGroup {
                     """)
                 .promptTemplate("""
                     Workspace path: {{workspace_path}}
-                    Workspace file tree:
-                    {{workspace_file_tree}}
+                    Workspace file tree: {{workspace_file_tree}}
                     User current editor file {{current_file_path}}'s content:
+                    ```
                     {{current_file_content}}
-                    User current editor position:
-                    line: {{current_line_number}}, column: {{current_column_number}}
+                    ```
+                    User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
                     User's query:
                     """)
                 .model(model)
@@ -76,10 +112,13 @@ public class CodingAgentGroup {
                         query:
                         """)
                 .llmProvider(llmProvider).build();
+        List<Node<?>> agents = List.of(codingAgent, workspaceAgent);
+        var goal = "coding-agent-group is a group of agents that help user to write code.";
         return AgentGroup.builder()
-                .agents(List.of(codingAgent, workspaceAgent))
                 .name("coding-agent-group")
-                .description("coding-agent-group is a group of agents that help user to write code.")
+                .description(goal)
+                .agents(agents)
+                .moderator(moderatorAgent(llmProvider, goal, agents))
                 .persistenceProvider(persistenceProvider)
                 .llmProvider(llmProvider).build();
     }
