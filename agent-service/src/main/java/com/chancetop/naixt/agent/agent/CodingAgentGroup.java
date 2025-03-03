@@ -27,7 +27,6 @@ public class CodingAgentGroup {
                         {}.
                         You need carefully review the capabilities of each agent, including the inputs and outputs of their functions to planning the conversation and choose the next agent to play.
                         Read the conversation, then select the next agent from the agents list to play.
-                        Please do not make decisions for the user. Leave it to the user-input-agent to handle.
                         Return a json that contain the agent's name and a query generated for the selected agent.
                         Read the conversation. Then select the next agent from the agents list to play.
                         Please generate the detailed query for the next step, including all necessary context.
@@ -68,6 +67,7 @@ public class CodingAgentGroup {
                     - The "file_contents" key should contain a list of objects, each with the keys "file_path", "content", and "action".
                     - The action value should be one of "ADD", "DELETE", or "MODIFY".
                     - The content value should be empty for "DELETE" action.
+                    - Remember to add a backslash before the quotes in the code of the content section.
                     The output json example:
                     {
                       "planning": "I will add a new import statement to the ExampleService.java file.",
@@ -119,6 +119,7 @@ public class CodingAgentGroup {
                 .description(goal)
                 .agents(agents)
                 .moderator(moderatorAgent(llmProvider, goal, agents))
+                .maxRound(3)
                 .persistenceProvider(persistenceProvider)
                 .llmProvider(llmProvider).build();
     }

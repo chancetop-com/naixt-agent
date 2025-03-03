@@ -1,6 +1,7 @@
 package com.chancetop.naixt.agent.api.naixt;
 
 import core.framework.api.json.Property;
+import core.framework.api.validate.NotNull;
 
 import java.util.List;
 
@@ -14,9 +15,11 @@ public class ChatResponse {
         return response;
     }
 
+    @NotNull
     @Property(name = "planning")
     public String text;
 
+    @NotNull
     @Property(name = "file_contents")
-    public List<FileContent> fileContents;
+    public List<FileContent> fileContents = List.of();
 }
