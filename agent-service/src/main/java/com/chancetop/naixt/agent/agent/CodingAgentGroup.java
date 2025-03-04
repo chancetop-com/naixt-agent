@@ -45,7 +45,7 @@ public class CodingAgentGroup {
                         User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
                         Previous agent output/raw input:
                         """)
-                .formatter(new DefaultJsonFormatter())
+                .formatter(new DefaultJsonFormatter(true))
                 .llmProvider(llmProvider).build();
     }
 

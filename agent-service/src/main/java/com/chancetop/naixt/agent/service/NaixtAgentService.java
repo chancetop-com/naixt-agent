@@ -10,6 +10,7 @@ import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
 import com.chancetop.naixt.agent.utils.IdeUtils;
 import core.framework.inject.Inject;
 import core.framework.json.JSON;
+import core.framework.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ public class NaixtAgentService {
     }
 
     public ChatResponse chat(NaixtChatRequest request) {
+        request.model = Strings.strip(request.model);
         if (!isInitialized || !request.workspacePath.equals(workspacePath)) {
             init(request.workspacePath, request.model);
         }
