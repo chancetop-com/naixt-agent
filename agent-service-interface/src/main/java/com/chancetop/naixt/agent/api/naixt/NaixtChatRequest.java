@@ -21,6 +21,9 @@ public class NaixtChatRequest {
     @Property(name = "model")
     public String model;
 
+    @Property(name = "planning_model")
+    public String planningModel;
+
     @Property(name = "workspace_path")
     public String workspacePath;
 }

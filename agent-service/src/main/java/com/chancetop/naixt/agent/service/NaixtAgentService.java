@@ -1,13 +1,14 @@
 package com.chancetop.naixt.agent.service;
 
 import ai.core.agent.AgentGroup;
-import ai.core.llm.providers.AzureOpenAIProvider;
+import ai.core.llm.providers.AzureInferenceProvider;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import com.chancetop.naixt.agent.agent.CodingAgentGroup;
 import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
 import com.chancetop.naixt.agent.api.naixt.ChatResponse;
 import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
 import com.chancetop.naixt.agent.utils.IdeUtils;
+import core.framework.async.Executor;
 import core.framework.inject.Inject;
 import core.framework.json.JSON;
 import core.framework.util.Strings;
@@ -22,16 +23,18 @@ import java.util.HashMap;
 public class NaixtAgentService {
     private final Logger logger = LoggerFactory.getLogger(NaixtAgentService.class);
     @Inject
-    AzureOpenAIProvider llmProvider;
+    AzureInferenceProvider llmProvider;
+    @Inject
+    Executor executor;
 
     private boolean isInitialized = false;
 //    private Agent agent;
     private AgentGroup codingAgentGroup;
     private String workspacePath;
 
-    public void init(String workspacePath, String model) {
+    public void init(String workspacePath, String model, String planningModel) {
         this.workspacePath = workspacePath;
-        this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), model);
+        this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), model, planningModel);
 //        this.agent = CodingAgentGroup.codingAgent(llmProvider, model);
         this.isInitialized = true;
         // todo: init language server
@@ -41,7 +44,7 @@ public class NaixtAgentService {
     public ChatResponse chat(NaixtChatRequest request) {
         request.model = Strings.strip(request.model);
         if (!isInitialized || !request.workspacePath.equals(workspacePath)) {
-            init(request.workspacePath, request.model);
+            init(request.workspacePath, request.model, request.planningModel);
         }
 
         var context = new HashMap<String, Object>();
@@ -53,11 +56,17 @@ public class NaixtAgentService {
         var rsp = codingAgentGroup.run(request.query, context);
 //        var rsp = agent.run(request.query, context);
         try {
-            return JSON.fromJSON(ChatResponse.class, rsp);
+            return toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
         } catch (Exception e) {
             logger.warn("Not coding result: {}", rsp);
             return ChatResponse.of(rsp);
         }
+    }
+
+    private ChatResponse toRsp(CodingAgentGroup.CodingResponse codingResponse) {
+        var rsp = ChatResponse.of(codingResponse.text);
+        rsp.fileContents = codingResponse.fileContents;
+        return rsp;
     }
 
     public void clear() {
@@ -66,6 +75,6 @@ public class NaixtAgentService {
     }
 
     public void approved(ApproveChangeRequest request) {
-        request.fileContents.forEach(fileContent -> IdeUtils.doChange(request.workspacePath, fileContent));
+        executor.submit("do-change", () -> request.fileContents.forEach(fileContent -> IdeUtils.doChange(request.workspacePath, fileContent)));
     }
 }

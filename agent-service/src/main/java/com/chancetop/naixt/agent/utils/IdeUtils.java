@@ -23,7 +23,7 @@ public class IdeUtils {
             return Files.readString(Paths.get(path), StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.warning("Failed to read file: " + path);
-            return "";
+            return e.getMessage();
         }
     }
 

@@ -7,7 +7,10 @@ import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
 import ai.core.tool.function.Functions;
+import com.chancetop.naixt.agent.api.naixt.FileContent;
 import com.chancetop.naixt.agent.service.WorkspaceToolingService;
+import core.framework.api.json.Property;
+import core.framework.api.validate.NotNull;
 import core.framework.util.Strings;
 
 import java.util.List;
@@ -16,7 +19,7 @@ import java.util.List;
  * @author stephen
  */
 public class CodingAgentGroup {
-    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents) {
+    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
         return Agent.builder()
                 .name("moderator-agent")
                 .description("moderator of a role play game to solve task by guide the conversation and choose the next speaker agent")
@@ -27,13 +30,15 @@ public class CodingAgentGroup {
                         {}.
                         You need carefully review the capabilities of each agent, including the inputs and outputs of their functions to planning the conversation and choose the next agent to play.
                         Read the conversation, then select the next agent from the agents list to play.
-                        Return a json that contain the agent's name and a query generated for the selected agent.
-                        Read the conversation. Then select the next agent from the agents list to play.
                         Please generate the detailed query for the next step, including all necessary context.
-                        If you think we already finish the task, please return the next_step valued: TERMINATE.
+                        You only do the planning and choose the next agent to play, do not execute any task for example code generating.
+                        Think in the user's language.
+                        If you think we already finish the task, please return the "next_step" valued: TERMINATE and leave the "name" empty.
+                        If you sure that the next agent is the last one and it can finish the task, please return the "next_step" valued: TERMINATE and place the agent name in the key "name".
                         Return a json that contain your planning steps and current step and the agent's name and a string query generated for the selected agent, for example:
-                        {"planning": "1. step1; 2. step2", "next_step": "step2", "name": "order-expert-agent", "query": "list the user's most recent orders"}.
+                        {"planning": "1. step1; 2. step2", "next_step": "TERMINATE", "name": "order-expert-agent", "query": "list the user's most recent orders"}.
                         Only return the json, do not print anything else.
+                        Always remember the goal and the agents list.
                         """, goal, AgentGroup.AgentsInfo.agentsInfo(agents)))
                 .promptTemplate("""
                         Workspace path: {{workspace_path}}
@@ -46,6 +51,7 @@ public class CodingAgentGroup {
                         Previous agent output/raw input:
                         """)
                 .formatter(new DefaultJsonFormatter(true))
+                .model(model)
                 .llmProvider(llmProvider).build();
     }
 
@@ -61,21 +67,26 @@ public class CodingAgentGroup {
                     You must use your expertise to provide the user with the best possible solution to their coding requirements.
                     Output requirements:
                     - The entire output should be in JSON format.
-                    - The output should contain the following keys: "planning", "partial", "file_contents".
-                    - Place your planning text in the "planning" key.
+                    - The output should contain the following keys: "description", "partial", "file_contents".
+                    - Place your description text in the "description" key.
                     - The "partial" key should contain a boolean value indicating whether the task is partial or complete at this time.
                     - The "file_contents" key should contain a list of objects, each with the keys "file_path", "content", and "action".
+                    - Place the code in the "content" key.
                     - The action value should be one of "ADD", "DELETE", or "MODIFY".
                     - The content value should be empty for "DELETE" action.
-                    - Remember to add a backslash before the quotes in the code of the content section.
                     The output json example:
                     {
-                      "planning": "I will add a new import statement to the ExampleService.java file.",
+                      "description": "I will add a new import statement to the ExampleService.java file, and add module declaration in the build.gradle file.",
                       "file_contents": [
                         {
                           "file_path": "src/main/java/org/example/server/ExampleService.java",
                           "content": "java source code",
                           "action": "MODIFY"
+                        },
+                        {
+                          "file_path": "other file path",
+                          "content": "other file content",
+                          "action": "ADD"
                         }
                       ],
                       "partial": false
@@ -83,7 +94,8 @@ public class CodingAgentGroup {
                     Other requirements:
                     Your need to analyze the user's query, you should not always assume that the user wants to generate code.
                     If the user hopes for code generation, then generate the code according to the Output requirements.
-                    If it is not code-related, still include your response in the "planning" key.
+                    If it is not code-related, still include your response in the "description" key.
+                    Please make sure that the code you write is consistent with the existing code style and framework of the project.
                     """)
                 .promptTemplate("""
                     Workspace path: {{workspace_path}}
@@ -95,12 +107,12 @@ public class CodingAgentGroup {
                     User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
                     User's query:
                     """)
-                .model(model)
+                .model("gpt-4o")
                 .formatter(new DefaultJsonFormatter())
                 .llmProvider(llmProvider).build();
     }
 
-    public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, String model) {
+    public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, String model, String planningModel) {
         var codingAgent = codingAgent(llmProvider, model);
         var workspaceAgent = Agent.builder()
                 .name("workspace-agent")
@@ -113,14 +125,34 @@ public class CodingAgentGroup {
                         """)
                 .llmProvider(llmProvider).build();
         List<Node<?>> agents = List.of(codingAgent, workspaceAgent);
-        var goal = "coding-agent-group is a group of agents that help user to write code.";
+        var goal = """
+                coding-agent-group is a group of agents that help user to write code.
+                we only need to focus on generating code, no need to confirm the modification or verify the content.
+                make sure the coding-agent is the last agent to play.
+                """;
         return AgentGroup.builder()
                 .name("coding-agent-group")
                 .description(goal)
                 .agents(agents)
-                .moderator(moderatorAgent(llmProvider, goal, agents))
+                .moderator(moderatorAgent(llmProvider, goal, agents, planningModel))
                 .maxRound(3)
                 .persistenceProvider(persistenceProvider)
                 .llmProvider(llmProvider).build();
+    }
+
+    public static class CodingResponse {
+        public static CodingResponse of(String text) {
+            var response = new CodingResponse();
+            response.text = text;
+            return response;
+        }
+
+        @NotNull
+        @Property(name = "description")
+        public String text;
+
+        @NotNull
+        @Property(name = "file_contents")
+        public List<FileContent> fileContents = List.of();
     }
 }
