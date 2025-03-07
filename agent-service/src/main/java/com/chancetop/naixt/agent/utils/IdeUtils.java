@@ -86,23 +86,23 @@ public class IdeUtils {
         return absolutePath.toString();
     }
 
-    public static String getWorkspaceFileTree(String workspace) {
-        if (Strings.isBlank(workspace)) return "";
+    public static String getDirFileTree(String path, Boolean recursive) {
+        if (Strings.isBlank(path)) return "";
 
-        var rootPath = Paths.get(workspace);
+        var rootPath = Paths.get(path);
         if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
             return "Invalid workspace directory.";
         }
 
         try {
-            return buildJavaFileTree(rootPath) + "\n";
+            return buildDirFileTree(rootPath, recursive) + "\n";
         } catch (IOException e) {
-            LOGGER.warning("Failed to read workspace directory: " + workspace);
+            LOGGER.warning("Failed to read workspace directory: " + path);
             return "Error reading workspace directory.";
         }
     }
 
-    private static String buildJavaFileTree(Path current) throws IOException {
+    private static String buildDirFileTree(Path current, Boolean recursive) throws IOException {
         var treeBuilder = new StringBuilder();
 
         try (var stream = Files.newDirectoryStream(current, entry -> Files.isRegularFile(entry) && filterFile(entry) || Files.isDirectory(entry))) {
@@ -111,8 +111,8 @@ public class IdeUtils {
                 if (Files.isRegularFile(entry)) {
                     treeBuilder.append(entry).append('\n');
                 }
-                if (Files.isDirectory(entry)) {
-                    var subTree = buildJavaFileTree(entry);
+                if (recursive && Files.isDirectory(entry)) {
+                    var subTree = buildDirFileTree(entry, true);
                     if (subTree.isEmpty()) continue;
                     treeBuilder.append(subTree).append('\n');
                 }

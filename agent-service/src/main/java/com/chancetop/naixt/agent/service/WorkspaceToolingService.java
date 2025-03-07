@@ -9,7 +9,7 @@ import com.chancetop.naixt.agent.utils.IdeUtils;
  */
 public class WorkspaceToolingService {
     @CoreAiMethod(
-            name = "get_file_contents",
+            name = "get_file_content",
             description = "tool to get file content")
     public String getFileContent(
             @CoreAiParameter(
@@ -20,13 +20,17 @@ public class WorkspaceToolingService {
     }
 
     @CoreAiMethod(
-            name = "get_workspace_file_tree",
-            description = "tool to get workspace file tree")
-    public String getWorkspaceFileTree(
+            name = "get_file_tree",
+            description = "tool to get directory file tree")
+    public String getDirFileTree(
             @CoreAiParameter(
-                    name = "workspace_path",
-                    description = "the workspace path",
-                    required = true) String workspacePath) {
-        return IdeUtils.getWorkspaceFileTree(workspacePath);
+                    name = "directory_path",
+                    description = "the path of the directory",
+                    required = true) String workspacePath,
+            @CoreAiParameter(
+                    name = "recursive",
+                    description = "whether to get the file tree recursively"
+            ) Boolean recursive) {
+        return IdeUtils.getDirFileTree(workspacePath, recursive);
     }
 }

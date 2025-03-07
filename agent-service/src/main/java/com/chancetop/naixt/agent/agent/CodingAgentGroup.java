@@ -71,7 +71,7 @@ public class CodingAgentGroup {
                     - Place your description text in the "description" key.
                     - The "partial" key should contain a boolean value indicating whether the task is partial or complete at this time.
                     - The "file_contents" key should contain a list of objects, each with the keys "file_path", "content", and "action".
-                    - Place the code in the "content" key.
+                    - Place the code in the "content" key, the content should be the whole file content after the modification.
                     - The action value should be one of "ADD", "DELETE", or "MODIFY".
                     - The content value should be empty for "DELETE" action.
                     The output json example:
@@ -107,8 +107,8 @@ public class CodingAgentGroup {
                     User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
                     User's query:
                     """)
-                .model("gpt-4o")
-                .formatter(new DefaultJsonFormatter())
+                .model(model)
+                .formatter(new DefaultJsonFormatter(true))
                 .llmProvider(llmProvider).build();
     }
 
