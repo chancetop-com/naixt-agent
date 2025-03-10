@@ -3,6 +3,7 @@ package com.chancetop.naixt.agent.service;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.AgentRole;
 import ai.core.llm.providers.AzureInferenceProvider;
+import ai.core.llm.providers.inner.Message;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import com.chancetop.naixt.agent.agent.CodingAgentGroup;
 import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
@@ -49,12 +50,16 @@ public class NaixtAgentService {
         }
         codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> {
             if (message.role == AgentRole.ASSISTANT && !message.name.equals("coding-agent")) {
-                channel.send(ChatResponse.of(message.name + ": " + message.content));
+                channel.send(ChatResponse.of(message.name + ": " + buildContent(message)));
             }
         });
         var rsp = chat(request);
         rsp.text = "coding-agent: " + rsp.text;
         channel.send(rsp);
+    }
+
+    private String buildContent(Message message) {
+        return message.content == null ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
     public ChatResponse chat(NaixtChatRequest request) {

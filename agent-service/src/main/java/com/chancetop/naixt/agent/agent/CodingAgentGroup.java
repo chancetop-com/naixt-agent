@@ -74,6 +74,7 @@ public class CodingAgentGroup {
                     - Place the code in the "content" key, the content should be the whole file content after the modification.
                     - The action value should be one of "ADD", "DELETE", or "MODIFY".
                     - The content value should be empty for "DELETE" action.
+                    - Description use the user's language.
                     The output json example:
                     {
                       "description": "I will add a new import statement to the ExampleService.java file, and add module declaration in the build.gradle file.",
@@ -117,7 +118,10 @@ public class CodingAgentGroup {
         var workspaceAgent = Agent.builder()
                 .name("workspace-agent")
                 .description("workspace-agent is an agent that provide project's workspace information for coding.")
-                .systemPrompt("You are an assistant that provide the project's workspace information for coding.")
+                .systemPrompt("""
+                        You are an assistant that provide the project's workspace information for coding.
+                        For example, you can provide the workspace path, file tree, and the content of a file.
+                        """)
                 .toolCalls(Functions.from(new WorkspaceToolingService()))
                 .promptTemplate("""
                         Workspace path: {{workspace_path}}
@@ -127,15 +131,15 @@ public class CodingAgentGroup {
         List<Node<?>> agents = List.of(codingAgent, workspaceAgent);
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
-                we only need to focus on generating code, no need to confirm the modification or verify the content.
-                make sure the coding-agent is the last agent to play.
+                We only need to focus on generating code, no need to confirm the modification or verify the content.
+                Ask the workspace-agent if you need more information about the workspace.
+                Make sure the coding-agent is the last agent to play.
                 """;
         return AgentGroup.builder()
                 .name("coding-agent-group")
                 .description(goal)
                 .agents(agents)
                 .moderator(moderatorAgent(llmProvider, goal, agents, planningModel))
-                .maxRound(3)
                 .persistenceProvider(persistenceProvider)
                 .llmProvider(llmProvider).build();
     }

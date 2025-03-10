@@ -18,12 +18,12 @@ public class IdeUtils {
     private static final Logger LOGGER = Logger.getLogger(IdeUtils.class.getName());
 
     public static String getFileContent(String path) {
-        if (Strings.isBlank(path)) return "";
+        if (Strings.isBlank(path)) return "Path is blank.";
         try {
             return Files.readString(Paths.get(path), StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.warning("Failed to read file: " + path);
-            return e.getMessage();
+            return Strings.format("failed to read file<{}>, please check your path", path);
         }
     }
 
@@ -131,6 +131,9 @@ public class IdeUtils {
     }
 
     private static boolean filterFile(Path entry) {
-        return entry.toString().endsWith(".java") || entry.toString().endsWith(".kt") || entry.toString().endsWith(".properties");
+        return entry.toString().endsWith(".java")
+                || entry.toString().endsWith(".kt")
+                || entry.toString().endsWith(".xml")
+                || entry.toString().endsWith(".properties");
     }
 }
