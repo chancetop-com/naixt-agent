@@ -17,10 +17,11 @@ import java.util.logging.Logger;
 public class IdeUtils {
     private static final Logger LOGGER = Logger.getLogger(IdeUtils.class.getName());
 
-    public static String getFileContent(String path) {
+    public static String getFileContent(String workspacePath, String path) {
         if (Strings.isBlank(path)) return "Path is blank.";
+        var truePath = toAbsolutePath(workspacePath, path);
         try {
-            return Files.readString(Paths.get(path), StandardCharsets.UTF_8);
+            return Files.readString(Paths.get(truePath), StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.warning("Failed to read file: " + path);
             return Strings.format("failed to read file<{}>, please check your path", path);
@@ -86,10 +87,11 @@ public class IdeUtils {
         return absolutePath.toString();
     }
 
-    public static String getDirFileTree(String path, Boolean recursive) {
+    public static String getDirFileTree(String workspacePath, String path, Boolean recursive) {
         if (Strings.isBlank(path)) return "";
+        var truePath = toAbsolutePath(workspacePath, path);
 
-        var rootPath = Paths.get(path);
+        var rootPath = Paths.get(truePath);
         if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
             return "Invalid workspace directory.";
         }

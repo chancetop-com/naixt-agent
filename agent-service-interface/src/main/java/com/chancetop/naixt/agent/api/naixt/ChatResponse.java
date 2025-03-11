@@ -22,4 +22,8 @@ public class ChatResponse {
     @NotNull
     @Property(name = "file_contents")
     public List<FileContent> fileContents = List.of();
+
+    @NotNull
+    @Property(name = "group_finished")
+    public Boolean groupFinished = false;
 }

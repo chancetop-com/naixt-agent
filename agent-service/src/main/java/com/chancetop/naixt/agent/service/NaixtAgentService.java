@@ -55,6 +55,7 @@ public class NaixtAgentService {
         });
         var rsp = chat(request);
         rsp.text = "coding-agent: " + rsp.text;
+        rsp.groupFinished = true;
         channel.send(rsp);
     }
 
@@ -80,7 +81,7 @@ public class NaixtAgentService {
         var context = new HashMap<String, Object>();
         context.put("workspace_path", request.workspacePath);
         context.put("current_file_path", IdeUtils.toWorkspaceRelativePath(request.workspacePath, request.currentFilePath));
-        context.put("current_file_content", IdeUtils.getFileContent(request.currentFilePath));
+        context.put("current_file_content", IdeUtils.getFileContent(request.workspacePath, request.currentFilePath));
         context.put("current_line_number", request.currentLineNumber);
         context.put("current_column_number", request.currentColumnNumber);
         return context;

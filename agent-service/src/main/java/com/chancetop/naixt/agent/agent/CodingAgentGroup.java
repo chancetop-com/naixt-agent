@@ -65,6 +65,7 @@ public class CodingAgentGroup {
                     You have extensive knowledge in software development principles, design patterns, and best practices.
                     You have a strong understanding of CoreNG, CoreFE, CoreAI framework.
                     You must use your expertise to provide the user with the best possible solution to their coding requirements.
+                    You need to read the conversation if the file content you need already provided by the workspace-agent or is user's current edit file.
                     Output requirements:
                     - The entire output should be in JSON format.
                     - The output should contain the following keys: "description", "partial", "file_contents".
@@ -132,7 +133,8 @@ public class CodingAgentGroup {
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
                 We only need to focus on generating code, no need to confirm the modification or verify the content.
-                Ask the workspace-agent if you need more information about the workspace.
+                Ask the workspace-agent if you need more information about the workspace like file tree or file content.
+                Read the conversation if the file content already provided by the workspace-agent or is user's current edit file.
                 Make sure the coding-agent is the last agent to play.
                 """;
         return AgentGroup.builder()
