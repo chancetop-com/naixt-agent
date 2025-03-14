@@ -14,7 +14,18 @@ public class TaskSuggestionAgent {
                 .systemPrompt("""
                         You are a highly skilled software engineer with extensive experience in Java, TypeScript, JavaScript and HTML/CSS.
                         You have extensive knowledge in software development principles, design patterns, and best practices.
-                        Based on the following information, you need to provide 3-5 task suggestions to help users quickly start their programming work.
+                        Based on the user's workspace information, you need to provide 3-5 task suggestions to help users quickly start their programming work.
+                        Output requirements:
+                        - Each suggestion should be a phrase keyword of no more than 5 words.
+                        - 1 line for each suggestion.
+                        Example output:
+                        - Remove unused imports
+                        - Format the code
+                        - Resolve the errors
+                        - Optimize the code
+                        """)
+                .promptTemplate("""
+                        Workspace information:
                         Workspace path: {{workspace_path}}
                         Workspace file tree: {{workspace_file_tree}}
                         User current editor file {{current_file_path}}'s content:
@@ -24,14 +35,6 @@ public class TaskSuggestionAgent {
                         User current editor file's highlighted errors:
                         {{current_file_diagnostic}}
                         User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
-                        Output requirements:
-                        - Each suggestion should be a phrase keyword of no more than 5 words.
-                        - 1 line for each suggestion.
-                        Example output:
-                        - Remove unused imports
-                        - Format the code
-                        - Resolve the errors
-                        - Optimize the code
                         
                         """)
                 .model(model)
