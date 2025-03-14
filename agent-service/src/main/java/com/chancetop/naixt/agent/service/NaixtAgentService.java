@@ -6,9 +6,13 @@ import ai.core.llm.providers.AzureInferenceProvider;
 import ai.core.llm.providers.inner.Message;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import com.chancetop.naixt.agent.agent.CodingAgentGroup;
-import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
-import com.chancetop.naixt.agent.api.naixt.ChatResponse;
-import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
+import com.chancetop.naixt.agent.agent.TaskSuggestionAgent;
+import com.chancetop.naixt.agent.api.naixt.AgentApproveRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentChatResponse;
+import com.chancetop.naixt.agent.api.naixt.AgentChatRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionResponse;
+import com.chancetop.naixt.agent.api.naixt.CurrentEditInfoView;
 import com.chancetop.naixt.agent.utils.IdeUtils;
 import core.framework.async.Executor;
 import core.framework.inject.Inject;
@@ -19,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -43,14 +48,14 @@ public class NaixtAgentService {
         logger.info("initialized agent service with workspace: {}", workspacePath);
     }
 
-    public void chatSse(NaixtChatRequest request, Channel<ChatResponse> channel) {
-        request.model = Strings.strip(request.model);
-        if (!isInitialized || !request.workspacePath.equals(workspacePath)) {
-            init(request.workspacePath, request.model, request.planningModel);
+    public void chatSse(AgentChatRequest request, Channel<AgentChatResponse> channel) {
+        request.settings.model = Strings.strip(request.settings.model);
+        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath)) {
+            init(request.editInfo.workspacePath, request.settings.model, request.settings.planningModel);
         }
         codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> {
             if (message.role == AgentRole.ASSISTANT && !message.name.equals("coding-agent")) {
-                channel.send(ChatResponse.of(message.name + ": " + buildContent(message)));
+                channel.send(AgentChatResponse.of(message.name + ": " + buildContent(message)));
             }
         });
         var rsp = chat(request);
@@ -63,32 +68,22 @@ public class NaixtAgentService {
         return message.content == null ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
-    public ChatResponse chat(NaixtChatRequest request) {
-        request.model = Strings.strip(request.model);
-        if (!isInitialized || !request.workspacePath.equals(workspacePath)) {
-            init(request.workspacePath, request.model, request.planningModel);
+    public AgentChatResponse chat(AgentChatRequest request) {
+        request.settings.model = Strings.strip(request.settings.model);
+        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath)) {
+            init(request.editInfo.workspacePath, request.settings.model, request.settings.planningModel);
         }
-        var rsp = codingAgentGroup.run(request.query, buildContext(request));
+        var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
         try {
             return toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
         } catch (Exception e) {
             logger.warn("Not coding result: {}", rsp);
-            return ChatResponse.of(rsp);
+            return AgentChatResponse.of(rsp);
         }
     }
 
-    private Map<String, Object> buildContext(NaixtChatRequest request) {
-        var context = new HashMap<String, Object>();
-        context.put("workspace_path", request.workspacePath);
-        context.put("current_file_path", IdeUtils.toWorkspaceRelativePath(request.workspacePath, request.currentFilePath));
-        context.put("current_file_content", IdeUtils.getFileContent(request.workspacePath, request.currentFilePath));
-        context.put("current_line_number", request.currentLineNumber);
-        context.put("current_column_number", request.currentColumnNumber);
-        return context;
-    }
-
-    private ChatResponse toRsp(CodingAgentGroup.CodingResponse codingResponse) {
-        var rsp = ChatResponse.of(codingResponse.text);
+    private AgentChatResponse toRsp(CodingAgentGroup.CodingResponse codingResponse) {
+        var rsp = AgentChatResponse.of(codingResponse.text);
         rsp.fileContents = codingResponse.fileContents;
         return rsp;
     }
@@ -98,7 +93,22 @@ public class NaixtAgentService {
         codingAgentGroup.clearShortTermMemory();
     }
 
-    public void approved(ApproveChangeRequest request) {
+    public void approved(AgentApproveRequest request) {
         executor.submit("do-change", () -> request.fileContents.forEach(fileContent -> IdeUtils.doChange(request.workspacePath, fileContent)));
+    }
+
+    public AgentSuggestionResponse suggestion(AgentSuggestionRequest request) {
+        return AgentSuggestionResponse.of(List.of(TaskSuggestionAgent.of(llmProvider, request.settings.model).run("", buildContext(request.editInfo)).split("\n")));
+    }
+
+    private Map<String, Object> buildContext(CurrentEditInfoView editInfo) {
+        var context = new HashMap<String, Object>();
+        context.put("workspace_path", editInfo.workspacePath);
+        context.put("current_file_path", IdeUtils.toWorkspaceRelativePath(editInfo.workspacePath, editInfo.currentFilePath));
+        context.put("current_file_content", IdeUtils.getFileContent(editInfo.workspacePath, editInfo.currentFilePath));
+        context.put("current_line_number", editInfo.currentLineNumber);
+        context.put("current_column_number", editInfo.currentColumnNumber);
+        context.put("current_file_diagnostic", editInfo.currentFileDiagnostic);
+        return context;
     }
 }

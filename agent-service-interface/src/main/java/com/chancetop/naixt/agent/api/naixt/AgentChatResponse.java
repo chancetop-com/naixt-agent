@@ -8,9 +8,9 @@ import java.util.List;
 /**
  * @author stephen
  */
-public class ChatResponse {
-    public static ChatResponse of(String text) {
-        ChatResponse response = new ChatResponse();
+public class AgentChatResponse {
+    public static AgentChatResponse of(String text) {
+        AgentChatResponse response = new AgentChatResponse();
         response.text = text;
         return response;
     }

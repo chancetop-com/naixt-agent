@@ -4,7 +4,7 @@ import com.chancetop.naixt.agent.api.NaixtAgentWebService;
 import com.chancetop.naixt.agent.api.NaixtAgentWebServiceImpl;
 import com.chancetop.naixt.agent.api.NaixtWebService;
 import com.chancetop.naixt.agent.api.NaixtWebServiceImpl;
-import com.chancetop.naixt.agent.api.naixt.ChatResponse;
+import com.chancetop.naixt.agent.api.naixt.AgentChatResponse;
 import com.chancetop.naixt.agent.listener.NaixtAgentSSEListener;
 import com.chancetop.naixt.agent.service.NaixtAgentService;
 import com.chancetop.naixt.agent.service.NaixtService;
@@ -28,6 +28,6 @@ public class AgentModule extends Module {
         api().service(NaixtWebService.class, bind(NaixtWebServiceImpl.class));
         api().service(NaixtAgentWebService.class, bind(NaixtAgentWebServiceImpl.class));
         http().limitRate().add(ServerSentEventConfig.SSE_CONNECT_GROUP, 5000, 1000, Duration.ZERO);
-        sse().listen(HTTPMethod.PUT, "/naixt/agent/chat-sse", ChatResponse.class, bind(NaixtAgentSSEListener.class));
+        sse().listen(HTTPMethod.PUT, "/naixt/agent/chat-sse", AgentChatResponse.class, bind(NaixtAgentSSEListener.class));
     }
 }

@@ -35,7 +35,7 @@ public class WorkspaceToolingService {
                     required = true) String dir,
             @CoreAiParameter(
                     name = "recursive",
-                    description = "whether to get the file tree recursively"
+                    description = "whether to get the file tree recursively, if we encounter a problem with the context length being too long, try setting this parameter to false. "
             ) Boolean recursive) {
         return IdeUtils.getDirFileTree(workspacePath, dir, recursive);
     }

@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * @author stephen
  */
-public class ApproveChangeRequest {
+public class AgentApproveRequest {
     @Property(name = "workspace_path")
     public String workspacePath;
 

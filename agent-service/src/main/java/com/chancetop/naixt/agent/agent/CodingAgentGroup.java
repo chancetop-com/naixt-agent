@@ -35,6 +35,7 @@ public class CodingAgentGroup {
                         Think in the user's language.
                         If you think we already finish the task, please return the "next_step" valued: TERMINATE and leave the "name" empty.
                         If you sure that the next agent is the last one and it can finish the task, please return the "next_step" valued: TERMINATE and place the agent name in the key "name".
+                        If you are re-planning, please include the reason information in the query for the next agent.
                         Return a json that contain your planning steps and current step and the agent's name and a string query generated for the selected agent, for example:
                         {"planning": "1. step1; 2. step2", "next_step": "TERMINATE", "name": "order-expert-agent", "query": "list the user's most recent orders"}.
                         Only return the json, do not print anything else.
@@ -48,6 +49,8 @@ public class CodingAgentGroup {
                         {{current_file_content}}
                         ```
                         User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
+                        User current editor file's highlighted errors:
+                        {{current_file_diagnostic}}
                         Previous agent output/raw input:
                         """)
                 .formatter(new DefaultJsonFormatter(true))
@@ -56,8 +59,7 @@ public class CodingAgentGroup {
     }
 
     public static Agent codingAgent(LLMProvider llmProvider, String model) {
-        return Agent.builder()
-                .name("coding-agent")
+        return Agent.builder().name("coding-agent")
                 .description("coding-agent is an agent that helps users write code.")
                 .systemPrompt("""
                     You are an assistant that helps users write code.
@@ -66,6 +68,7 @@ public class CodingAgentGroup {
                     You have a strong understanding of CoreNG, CoreFE, CoreAI framework.
                     You must use your expertise to provide the user with the best possible solution to their coding requirements.
                     You need to read the conversation if the file content you need already provided by the workspace-agent or is user's current edit file.
+                    You need to analysis the user's query to choose the correct files to modify, don't always assume that the user's requirement can be solved by modifying the current file.
                     Output requirements:
                     - The entire output should be in JSON format.
                     - The output should contain the following keys: "description", "partial", "file_contents".
@@ -106,6 +109,8 @@ public class CodingAgentGroup {
                     ```
                     {{current_file_content}}
                     ```
+                    User current editor file's highlighted errors:
+                    {{current_file_diagnostic}}
                     User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
                     User's query:
                     """)
@@ -122,6 +127,7 @@ public class CodingAgentGroup {
                 .systemPrompt("""
                         You are an assistant that provide the project's workspace information for coding.
                         For example, you can provide the workspace path, file tree, and the content of a file.
+                        When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
                         """)
                 .toolCalls(Functions.from(new WorkspaceToolingService()))
                 .promptTemplate("""
@@ -133,8 +139,10 @@ public class CodingAgentGroup {
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
                 We only need to focus on generating code, no need to confirm the modification or verify the content.
-                Ask the workspace-agent if you need more information about the workspace like file tree or file content.
+                We need to analysis the user's query to choose the correct files to modify, don't always assume that the user's requirement can be solved by modifying the current file.
+                Ask the workspace-agent if we need more information about the workspace like file tree or file content.
                 Read the conversation if the file content already provided by the workspace-agent or is user's current edit file.
+                We need to carefully analyze the requirements and try to modify or add files according to the existing code structure, rather than directly starting to add new files.
                 Make sure the coding-agent is the last agent to play.
                 """;
         return AgentGroup.builder()
@@ -143,6 +151,7 @@ public class CodingAgentGroup {
                 .agents(agents)
                 .moderator(moderatorAgent(llmProvider, goal, agents, planningModel))
                 .persistenceProvider(persistenceProvider)
+                .maxRound(8)
                 .llmProvider(llmProvider).build();
     }
 

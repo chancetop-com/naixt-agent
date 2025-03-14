@@ -5,10 +5,7 @@ import core.framework.api.json.Property;
 /**
  * @author stephen
  */
-public class NaixtChatRequest {
-    @Property(name = "query")
-    public String query;
-
+public class CurrentEditInfoView {
     @Property(name = "current_file_path")
     public String currentFilePath;
 
@@ -18,12 +15,9 @@ public class NaixtChatRequest {
     @Property(name = "current_column_number")
     public Integer currentColumnNumber;
 
-    @Property(name = "model")
-    public String model;
-
-    @Property(name = "planning_model")
-    public String planningModel;
-
     @Property(name = "workspace_path")
     public String workspacePath;
+
+    @Property(name = "current_file_diagnostic")
+    public String currentFileDiagnostic;
 }

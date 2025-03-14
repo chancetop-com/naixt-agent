@@ -1,8 +1,10 @@
 package com.chancetop.naixt.agent.api;
 
-import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
-import com.chancetop.naixt.agent.api.naixt.ChatResponse;
-import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentApproveRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentChatResponse;
+import com.chancetop.naixt.agent.api.naixt.AgentChatRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionResponse;
 import com.chancetop.naixt.agent.service.NaixtAgentService;
 import core.framework.inject.Inject;
 
@@ -14,8 +16,13 @@ public class NaixtAgentWebServiceImpl implements NaixtAgentWebService {
     NaixtAgentService naixtAgentService;
 
     @Override
-    public ChatResponse chat(NaixtChatRequest request) {
+    public AgentChatResponse chat(AgentChatRequest request) {
         return naixtAgentService.chat(request);
+    }
+
+    @Override
+    public AgentSuggestionResponse suggestion(AgentSuggestionRequest request) {
+        return naixtAgentService.suggestion(request);
     }
 
     @Override
@@ -24,7 +31,7 @@ public class NaixtAgentWebServiceImpl implements NaixtAgentWebService {
     }
 
     @Override
-    public void approved(ApproveChangeRequest request) {
+    public void approved(AgentApproveRequest request) {
         naixtAgentService.approved(request);
     }
 }

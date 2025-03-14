@@ -1,8 +1,10 @@
 package com.chancetop.naixt.agent.api;
 
-import com.chancetop.naixt.agent.api.naixt.ApproveChangeRequest;
-import com.chancetop.naixt.agent.api.naixt.ChatResponse;
-import com.chancetop.naixt.agent.api.naixt.NaixtChatRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentApproveRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionRequest;
+import com.chancetop.naixt.agent.api.naixt.AgentSuggestionResponse;
+import com.chancetop.naixt.agent.api.naixt.AgentChatResponse;
+import com.chancetop.naixt.agent.api.naixt.AgentChatRequest;
 import core.framework.api.web.service.PUT;
 import core.framework.api.web.service.Path;
 
@@ -12,7 +14,11 @@ import core.framework.api.web.service.Path;
 public interface NaixtAgentWebService {
     @PUT
     @Path("/naixt/agent/chat")
-    ChatResponse chat(NaixtChatRequest request);
+    AgentChatResponse chat(AgentChatRequest request);
+
+    @PUT
+    @Path("/naixt/agent/suggestion")
+    AgentSuggestionResponse suggestion(AgentSuggestionRequest request);
 
     @PUT
     @Path("/naixt/agent/clear")
@@ -20,5 +26,5 @@ public interface NaixtAgentWebService {
 
     @PUT
     @Path("/naixt/agent/change-list-approved")
-    void approved(ApproveChangeRequest request);
+    void approved(AgentApproveRequest request);
 }
