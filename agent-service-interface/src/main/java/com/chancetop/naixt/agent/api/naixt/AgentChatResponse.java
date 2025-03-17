@@ -15,6 +15,13 @@ public class AgentChatResponse {
         return response;
     }
 
+    public static AgentChatResponse of(String text, boolean groupFinished) {
+        AgentChatResponse response = new AgentChatResponse();
+        response.text = text;
+        response.groupFinished = groupFinished;
+        return response;
+    }
+
     @NotNull
     @Property(name = "planning")
     public String text;

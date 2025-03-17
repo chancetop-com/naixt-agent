@@ -33,6 +33,7 @@ public class CodingAgentGroup {
                         Please generate the detailed query for the next step, including all necessary context.
                         You only do the planning and choose the next agent to play, do not execute any task for example code generating.
                         Think in the user's language.
+                        Read the conversation and think if we already finish the task, if yes, TERMINATE, if not, choose the next agent to play.
                         If you think we already finish the task, please return the "next_step" valued: TERMINATE and leave the "name" empty.
                         If you sure that the next agent is the last one and it can finish the task, please return the "next_step" valued: TERMINATE and place the agent name in the key "name".
                         If you are re-planning, please include the reason information in the query for the next agent.
@@ -57,7 +58,6 @@ public class CodingAgentGroup {
                 .model(model)
                 .llmProvider(llmProvider).build();
     }
-
     public static Agent codingAgent(LLMProvider llmProvider, String model) {
         return Agent.builder().name("coding-agent")
                 .description("coding-agent is an agent that helps users write code.")

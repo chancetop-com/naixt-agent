@@ -2,6 +2,7 @@ package com.chancetop.naixt.agent.service;
 
 import ai.core.agent.AgentGroup;
 import ai.core.agent.AgentRole;
+import ai.core.agent.planning.DefaultPlanning;
 import ai.core.llm.providers.AzureInferenceProvider;
 import ai.core.llm.providers.inner.Message;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
@@ -54,12 +55,15 @@ public class NaixtAgentService {
             init(request.editInfo.workspacePath, request.settings.model, request.settings.planningModel);
         }
         codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> {
-            if (message.role == AgentRole.ASSISTANT && !message.name.equals("coding-agent")) {
+            if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
+            if (message.name.equals(codingAgentGroup.getModerator().getName())) {
+                var p = codingAgentGroup.getPlanning().localPlanning(message.content, DefaultPlanning.DefaultAgentPlanningResult.class);
+                channel.send(AgentChatResponse.of(message.name + ": " + p.planning));
+            } else {
                 channel.send(AgentChatResponse.of(message.name + ": " + buildContent(message)));
             }
         });
         var rsp = chat(request);
-        rsp.text = "coding-agent: " + rsp.text;
         rsp.groupFinished = true;
         channel.send(rsp);
     }
@@ -75,7 +79,9 @@ public class NaixtAgentService {
         }
         var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
         try {
-            return toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
+            var response = toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
+            response.text = "coding-agent:\n" + response.text;
+            return response;
         } catch (Exception e) {
             logger.warn("Not coding result: {}", rsp);
             return AgentChatResponse.of(rsp);

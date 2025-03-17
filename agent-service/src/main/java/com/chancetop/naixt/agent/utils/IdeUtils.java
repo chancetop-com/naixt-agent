@@ -89,18 +89,16 @@ public class IdeUtils {
 
     public static String getDirFileTree(String workspacePath, String path, Boolean recursive) {
         if (Strings.isBlank(path)) return "";
-        var truePath = toAbsolutePath(workspacePath, path);
-
-        var rootPath = Paths.get(truePath);
-        if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
-            return "Invalid workspace directory.";
-        }
-
         try {
+            var truePath = toAbsolutePath(workspacePath, path);
+            var rootPath = Paths.get(truePath);
+            if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+                return "Invalid workspace directory.";
+            }
             return buildDirFileTree(rootPath, recursive) + "\n";
         } catch (IOException e) {
             LOGGER.warning("Failed to read workspace directory: " + path);
-            return "Error reading workspace directory.";
+            return "Error reading workspace directory, please check your path.";
         }
     }
 
