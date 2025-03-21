@@ -108,9 +108,7 @@ public class IdeUtils {
         try (var stream = Files.newDirectoryStream(current, entry -> Files.isRegularFile(entry) && filterFile(entry) || Files.isDirectory(entry))) {
             for (var entry : stream) {
                 if (isGitIgnore(entry)) continue;
-                if (Files.isRegularFile(entry)) {
-                    treeBuilder.append(entry).append('\n');
-                }
+                treeBuilder.append(entry).append('\n');
                 if (recursive && Files.isDirectory(entry)) {
                     var subTree = buildDirFileTree(entry, true);
                     if (subTree.isEmpty()) continue;

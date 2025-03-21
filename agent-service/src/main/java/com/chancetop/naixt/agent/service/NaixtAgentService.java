@@ -3,9 +3,15 @@ package com.chancetop.naixt.agent.service;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.AgentRole;
 import ai.core.agent.planning.DefaultPlanning;
+import ai.core.document.Document;
+import ai.core.document.TextChunk;
+import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
 import ai.core.llm.providers.AzureInferenceProvider;
+import ai.core.llm.providers.inner.EmbeddingRequest;
 import ai.core.llm.providers.inner.Message;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
+import ai.core.rag.vectorstore.hnswlib.HnswConfig;
+import ai.core.rag.vectorstore.hnswlib.HnswLibVectorStore;
 import com.chancetop.naixt.agent.agent.CodingAgentGroup;
 import com.chancetop.naixt.agent.agent.TaskSuggestionAgent;
 import com.chancetop.naixt.agent.api.naixt.AgentApproveRequest;
@@ -23,6 +29,8 @@ import core.framework.web.sse.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +51,22 @@ public class NaixtAgentService {
 
     public void init(String workspacePath, String model, String planningModel) {
         this.workspacePath = workspacePath;
-        this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), model, planningModel);
+        var vectorStorePath = Paths.get(workspacePath).resolve( ".naixt/embeddings.bin");
+        if (!vectorStorePath.toFile().exists()) {
+            try {
+                Files.createDirectories(vectorStorePath.getParent());
+                Files.createFile(vectorStorePath);
+                var fileTree = IdeUtils.getDirFileTree(workspacePath, workspacePath, true);
+                var chunks = new RecursiveCharacterTextSplitter().split(fileTree);
+                var embeddingTexts = chunks.stream().map(TextChunk::embeddingText).toList();
+                var rsp = llmProvider.embeddings(new EmbeddingRequest(embeddingTexts));
+                var documents = rsp.embeddings.stream().map(v -> new Document(v.text, v.embedding, null)).toList();
+                HnswLibVectorStore.build(HnswConfig.of(vectorStorePath.toString()), documents);
+            } catch (Exception e) {
+                throw new RuntimeException("Init workspace failed: ", e);
+            }
+        }
+        this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), model, planningModel, vectorStorePath.toString());
         this.isInitialized = true;
         // todo: init language server
         logger.info("initialized agent service with workspace: {}", workspacePath);

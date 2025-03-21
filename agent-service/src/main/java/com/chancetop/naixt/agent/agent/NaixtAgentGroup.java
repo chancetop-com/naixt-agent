@@ -41,7 +41,7 @@ public class NaixtAgentGroup {
                 .promptTemplate("")
                 .toolCalls(Functions.from(languageServerToolingService))
                 .llmProvider(llmProvider).build();
-        var codingAgentGroup = CodingAgentGroup.of(llmProvider, persistenceProvider, "gpt-4o-2024-08-06-CoreNGCodingBeta", "DeepSeek-R1");
+        var codingAgentGroup = CodingAgentGroup.of(llmProvider, persistenceProvider, "gpt-4o-2024-08-06-CoreNGCodingBeta", "DeepSeek-R1", "embeddings.bin");
         var gitAgent = Agent.builder()
                 .name("git-agent")
                 .description("git-agent is an agent that help user to manage git repository.")
