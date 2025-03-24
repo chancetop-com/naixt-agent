@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 /**
@@ -95,29 +96,63 @@ public class IdeUtils {
             if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
                 return "Invalid workspace directory.";
             }
-            return buildDirFileTree(rootPath, recursive) + "\n";
+            return buildDirFileTree(rootPath, recursive, new StringBuilder(), true) + "\n";
         } catch (IOException e) {
             LOGGER.warning("Failed to read workspace directory: " + path);
             return "Error reading workspace directory, please check your path.";
         }
     }
 
-    private static String buildDirFileTree(Path current, Boolean recursive) throws IOException {
-        var treeBuilder = new StringBuilder();
+    private static String buildDirFileTree(Path dir, boolean recursive, StringBuilder indent, boolean isLast) throws IOException {
+        var sb = new StringBuilder();
+        var dirName = dir.getFileName().toString();
+        sb.append(indent);
 
-        try (var stream = Files.newDirectoryStream(current, entry -> Files.isRegularFile(entry) && filterFile(entry) || Files.isDirectory(entry))) {
+        StringBuilder newIndent;
+        if (isLast) {
+            sb.append("└── ");
+            newIndent = new StringBuilder(indent).append("    ");
+        } else {
+            sb.append("├── ");
+            newIndent = new StringBuilder(indent).append("│   ");
+        }
+        sb.append(dirName).append("/\n");
+
+        var entries = new ArrayList<Path>();
+        try (var stream = Files.newDirectoryStream(dir)) {
             for (var entry : stream) {
-                if (isGitIgnore(entry)) continue;
-                treeBuilder.append(entry).append('\n');
-                if (recursive && Files.isDirectory(entry)) {
-                    var subTree = buildDirFileTree(entry, true);
-                    if (subTree.isEmpty()) continue;
-                    treeBuilder.append(subTree).append('\n');
-                }
+                entries.add(entry);
             }
         }
 
-        return treeBuilder.isEmpty() ? "" : treeBuilder.toString().replaceAll("\n\\s*\\n", "\n");
+        entries.sort((p1, p2) -> {
+            var isDir1 = Files.isDirectory(p1);
+            var isDir2 = Files.isDirectory(p2);
+            if (isDir1 != isDir2) {
+                return isDir1 ? -1 : 1;
+            }
+            return p1.getFileName().toString().compareToIgnoreCase(p2.getFileName().toString());
+        });
+
+        for (var i = 0; i < entries.size(); i++) {
+            var entry = entries.get(i);
+            var entryIsLast = i == entries.size() - 1;
+
+            if (isGitIgnore(entry)) continue;
+
+            if (Files.isDirectory(entry)) {
+                if (recursive) {
+                    var subtree = buildDirFileTree(entry, true, newIndent, entryIsLast);
+                    sb.append(subtree);
+                } else {
+                    sb.append(newIndent).append(entryIsLast ? "└── " : "├── ").append(entry.getFileName().toString()).append("/\n");
+                }
+            } else {
+                sb.append(newIndent).append(entryIsLast ? "└── " : "├── ").append(entry.getFileName().toString()).append("\n");
+            }
+        }
+
+        return sb.toString();
     }
 
     private static boolean isGitIgnore(Path path) {

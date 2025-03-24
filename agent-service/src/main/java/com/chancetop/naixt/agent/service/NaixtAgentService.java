@@ -51,7 +51,7 @@ public class NaixtAgentService {
 
     public void init(String workspacePath, String model, String planningModel) {
         this.workspacePath = workspacePath;
-        var vectorStorePath = Paths.get(workspacePath).resolve( ".naixt/embeddings.bin");
+        var vectorStorePath = Paths.get(workspacePath).resolve(".naixt/embeddings.bin");
         if (!vectorStorePath.toFile().exists()) {
             try {
                 Files.createDirectories(vectorStorePath.getParent());

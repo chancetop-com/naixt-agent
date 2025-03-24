@@ -4,19 +4,16 @@ import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.Node;
 import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
-import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
-import ai.core.rag.LongQueryHandler;
-import ai.core.rag.LongQueryHandlerType;
-import ai.core.rag.vectorstore.hnswlib.HnswConfig;
-import ai.core.rag.vectorstore.hnswlib.HnswLibVectorStore;
 import ai.core.tool.function.Functions;
 import com.chancetop.naixt.agent.api.naixt.FileContent;
 import com.chancetop.naixt.agent.service.WorkspaceToolingService;
 import core.framework.api.json.Property;
 import core.framework.api.validate.NotNull;
 import core.framework.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -24,6 +21,8 @@ import java.util.List;
  * @author stephen
  */
 public class CodingAgentGroup {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CodingAgentGroup.class);
+
     public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
         return Agent.builder()
                 .name("moderator-agent")
@@ -151,8 +150,9 @@ public class CodingAgentGroup {
                 We need to carefully analyze the requirements and try to modify or add files according to the existing code structure, rather than directly starting to add new files.
                 Make sure the coding-agent is the last agent to play.
                 """;
-        var vectorStore = new HnswLibVectorStore(HnswConfig.of(vectorStorePath));
-        var longQueryHandler = new LongQueryHandler(llmProvider, LongQueryHandlerType.RAG, vectorStore, new RecursiveCharacterTextSplitter());
+        LOGGER.info(vectorStorePath);
+//        var vectorStore = new HnswLibVectorStore(HnswConfig.of(vectorStorePath));
+//        var longQueryHandler = new LongQueryHandler(llmProvider, LongQueryHandlerType.RAG, vectorStore, new RecursiveCharacterTextSplitter());
         return AgentGroup.builder()
                 .name("coding-agent-group")
                 .description(goal)
