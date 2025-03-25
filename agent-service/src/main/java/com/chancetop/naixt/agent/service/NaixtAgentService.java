@@ -9,10 +9,12 @@ import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
 import ai.core.llm.providers.AzureInferenceProvider;
 import ai.core.llm.providers.inner.EmbeddingRequest;
 import ai.core.llm.providers.inner.Message;
+import ai.core.mcp.client.MCPServerConfig;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import ai.core.rag.vectorstore.hnswlib.HnswConfig;
 import ai.core.rag.vectorstore.hnswlib.HnswLibVectorStore;
 import com.chancetop.naixt.agent.agent.CodingAgentGroup;
+import com.chancetop.naixt.agent.agent.NaixtAgentGroup;
 import com.chancetop.naixt.agent.agent.TaskSuggestionAgent;
 import com.chancetop.naixt.agent.api.naixt.AgentApproveRequest;
 import com.chancetop.naixt.agent.api.naixt.AgentChatResponse;
@@ -20,6 +22,8 @@ import com.chancetop.naixt.agent.api.naixt.AgentChatRequest;
 import com.chancetop.naixt.agent.api.naixt.AgentSuggestionRequest;
 import com.chancetop.naixt.agent.api.naixt.AgentSuggestionResponse;
 import com.chancetop.naixt.agent.api.naixt.CurrentEditInfoView;
+import com.chancetop.naixt.agent.api.naixt.NaixtPluginMcpSettingView;
+import com.chancetop.naixt.agent.api.naixt.NaixtPluginSettingsView;
 import com.chancetop.naixt.agent.utils.IdeUtils;
 import core.framework.async.Executor;
 import core.framework.inject.Inject;
@@ -31,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,9 +53,11 @@ public class NaixtAgentService {
     private boolean isInitialized = false;
     private AgentGroup codingAgentGroup;
     private String workspacePath;
+    private NaixtPluginSettingsView settings;
 
-    public void init(String workspacePath, String model, String planningModel) {
-        this.workspacePath = workspacePath;
+    public void init(AgentChatRequest request) {
+        this.settings = request.settings;
+        this.workspacePath = request.editInfo.workspacePath;
         var vectorStorePath = Paths.get(workspacePath).resolve(".naixt/embeddings.bin");
         if (!vectorStorePath.toFile().exists()) {
             try {
@@ -66,17 +73,33 @@ public class NaixtAgentService {
                 throw new RuntimeException("Init workspace failed: ", e);
             }
         }
-        this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), model, planningModel, vectorStorePath.toString());
+        if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
+            var mcpServerConfigs = setupMcpServerConfigs(request);
+            this.codingAgentGroup = NaixtAgentGroup.of(new NaixtAgentGroup.NaixtAgentGroupConfig(
+                    llmProvider,
+                    new TemporaryPersistenceProvider(),
+                    request.settings.model,
+                    request.settings.planningModel,
+                    vectorStorePath.toString(),
+                    mcpServerConfigs));
+        } else {
+            this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), request.settings.model, request.settings.planningModel, vectorStorePath.toString());
+        }
         this.isInitialized = true;
-        // todo: init language server
+        // todo: init language server if in cloud env
         logger.info("initialized agent service with workspace: {}", workspacePath);
     }
 
-    public void chatSse(AgentChatRequest request, Channel<AgentChatResponse> channel) {
-        request.settings.model = Strings.strip(request.settings.model);
-        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath)) {
-            init(request.editInfo.workspacePath, request.settings.model, request.settings.planningModel);
+    private static ArrayList<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
+        var mcpServerConfigs = new ArrayList<MCPServerConfig>();
+        if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
+            if (request.settings.atlassianMcpSetting == null || request.settings.atlassianMcpSetting.url == null) throw new RuntimeException("atlassian mcp setting is required when jira is enabled.");
+            mcpServerConfigs.add(new MCPServerConfig(request.settings.atlassianMcpSetting.url, "atlassian-agent", "fetch information from atlassian products like jira and wiki"));
         }
+        return mcpServerConfigs.isEmpty() ? null : mcpServerConfigs;
+    }
+
+    public void chatSse(AgentChatRequest request, Channel<AgentChatResponse> channel) {
         codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> {
             if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
             if (message.name.equals(codingAgentGroup.getModerator().getName())) {
@@ -91,14 +114,25 @@ public class NaixtAgentService {
         channel.send(rsp);
     }
 
+    private boolean settingChanged(NaixtPluginSettingsView settings) {
+        return (!this.settings.model.equalsIgnoreCase(settings.model))
+                || (!this.settings.planningModel.equalsIgnoreCase(settings.planningModel))
+                || this.settings.atlassianEnabled != settings.atlassianEnabled
+                || mcpConfigChanged(this.settings.atlassianMcpSetting);
+    }
+
+    private boolean mcpConfigChanged(NaixtPluginMcpSettingView jiraMcpSetting) {
+        return !this.settings.atlassianMcpSetting.url.equalsIgnoreCase(jiraMcpSetting.url);
+    }
+
     private String buildContent(Message message) {
         return message.content == null ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
         request.settings.model = Strings.strip(request.settings.model);
-        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath)) {
-            init(request.editInfo.workspacePath, request.settings.model, request.settings.planningModel);
+        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath) || settingChanged(request.settings)) {
+            init(request);
         }
         var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
         try {

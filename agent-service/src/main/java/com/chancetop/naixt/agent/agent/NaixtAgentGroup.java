@@ -2,6 +2,9 @@ package com.chancetop.naixt.agent.agent;
 
 import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
+import ai.core.agent.Node;
+import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
+import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.mcp.client.MCPClientService;
 import ai.core.mcp.client.MCPServerConfig;
@@ -9,51 +12,77 @@ import ai.core.persistence.PersistenceProvider;
 import ai.core.tool.function.Functions;
 import ai.core.tool.mcp.MCPToolCalls;
 import com.chancetop.naixt.agent.service.LanguageServerToolingService;
+import core.framework.util.Lists;
+import core.framework.util.Strings;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * @author stephen
  */
 public class NaixtAgentGroup {
-    public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, LanguageServerToolingService languageServerToolingService) {
+
+    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
+        return DefaultModeratorAgent.of(llmProvider, model, goal, agents, CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE);
+    }
+
+    public static Agent mcpAgent(LLMProvider llmProvider, MCPServerConfig config) {
+        var mcpService = new MCPClientService(config);
+        return Agent.builder()
+                .name(config.name())
+                .description(config.description())
+                .systemPrompt(Strings.format("""
+                        You are assistant that helps users to use tools of {}.
+                        """, config.name()))
+                .promptTemplate("""
+                        query:
+                        """)
+                .toolCalls(MCPToolCalls.from(mcpService))
+                .llmProvider(llmProvider).build();
+    }
+
+    public static AgentGroup of(NaixtAgentGroupConfig config) {
         var requirementAgent = Agent.builder()
                 .name("requirement-agent")
                 .description("requirement-agent is an agent that provide user's requirement and analysis result.")
                 .systemPrompt("""
-                        As a Requirements Analyst in software development, your task is to interpret and translate visual prototypes or textual Product Requirement Documents (PRD) into clear, actionable instructions for an AI Coding Agent.
-                        Your output should meticulously detail functional requirements, user interactions, data flows, and any other pertinent information needed for the AI to generate code that aligns with the project's vision.
-                        Please follow these guidelines for your output:
-                        - Project Overview: Provide a concise summary of the project goals and objectives.
-                        - Functional Specifications: List all functionalities required by the application, specifying inputs, processes, and outputs for each.
-                        - User Interactions: Describe the intended user interactions with the system, including use cases and user interface flow.
-                        - Data Models: Outline the structure of the data involved, including entities, attributes, and relationships.
-                        - API Specifications: If applicable, provide details on API endpoints, request/response formats, and interaction protocols.
-                        - Non-functional Requirements: Include performance criteria, security measures, and compliance standards that must be adhered to.
-                        - Assumptions & Dependencies: Note any assumptions made during analysis and external dependencies that could affect implementation.
+                        You are an assistant that helps users analysis requirement.
+                        You need to analyze the user's requirements and provide guidance to the coding-agent so that the coding-agent can clearly understand what coding tasks need to be performed.
                         """)
-                .promptTemplate("")
-                .llmProvider(llmProvider).build();
-        var languageServerAgent = Agent.builder()
-                .name("language-server-agent")
-                .description("language-server-agent is an agent that provider information from language server, for example, workspace information, source code information and so on.")
-                .systemPrompt("You are an assistant that helps users find information.")
-                .promptTemplate("")
-                .toolCalls(Functions.from(languageServerToolingService))
-                .llmProvider(llmProvider).build();
-        var codingAgentGroup = CodingAgentGroup.of(llmProvider, persistenceProvider, "gpt-4o-2024-08-06-CoreNGCodingBeta", "DeepSeek-R1", "embeddings.bin");
-        var gitAgent = Agent.builder()
-                .name("git-agent")
-                .description("git-agent is an agent that help user to manage git repository.")
-                .systemPrompt("You are an assistant that helps users manage git repository.")
-                .promptTemplate("")
-                .toolCalls(MCPToolCalls.from(new MCPClientService(new MCPServerConfig("localhost", 8080))))
-                .llmProvider(llmProvider).build();
+                .promptTemplate("""
+                        query:
+                        """)
+                .llmProvider(config.llmProvider()).build();
+
+        var codingAgentGroup = CodingAgentGroup.of(config.llmProvider(), config.persistenceProvider(), config.model(), config.planningModel(), config.vectorStorePath());
+
+        var goal = """
+        naixt-agent-group is a group of agents that help user to analysis requirement by fetch information from atlassian products and write code for it.
+        """;
+
+        List<Node<?>> agents = new ArrayList<>(List.of(requirementAgent, codingAgentGroup));
+        if (!config.mcpServerConfigs.isEmpty()) {
+            var mcpAgents = config.mcpServerConfigs.stream().map(c -> mcpAgent(config.llmProvider(), c)).toList();
+            agents.addAll(mcpAgents);
+        }
+        var moderatorAgent = moderatorAgent(config.llmProvider(), goal, agents, config.model());
+
         return AgentGroup.builder()
-                .agents(List.of(requirementAgent, languageServerAgent, codingAgentGroup, gitAgent))
+                .agents(agents)
                 .name("naixt-agent-group")
-                .description("naixt-agent-group is a group of agents that help user to write code.")
-                .persistenceProvider(persistenceProvider)
-                .llmProvider(llmProvider).build();
+                .description(goal)
+                .persistenceProvider(config.persistenceProvider())
+                .moderator(moderatorAgent)
+                .llmProvider(config.llmProvider()).build();
+    }
+
+    public record NaixtAgentGroupConfig(LLMProvider llmProvider,
+                                        PersistenceProvider persistenceProvider,
+                                        String model,
+                                        String planningModel,
+                                        String vectorStorePath,
+                                        List<MCPServerConfig> mcpServerConfigs) {
+
     }
 }

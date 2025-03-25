@@ -11,4 +11,10 @@ public class NaixtPluginSettingsView {
 
     @Property(name = "planning_model")
     public String planningModel;
+
+    @Property(name = "atlassian_enabled")
+    public Boolean atlassianEnabled;
+
+    @Property(name = "atlassian_mcp_setting")
+    public NaixtPluginMcpSettingView atlassianMcpSetting;
 }
