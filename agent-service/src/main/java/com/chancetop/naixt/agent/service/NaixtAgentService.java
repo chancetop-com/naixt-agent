@@ -2,7 +2,8 @@ package com.chancetop.naixt.agent.service;
 
 import ai.core.agent.AgentGroup;
 import ai.core.agent.AgentRole;
-import ai.core.agent.planning.DefaultPlanning;
+import ai.core.agent.Node;
+import ai.core.agent.planning.plannings.DefaultPlanningResult;
 import ai.core.document.Document;
 import ai.core.document.TextChunk;
 import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,23 +57,12 @@ public class NaixtAgentService {
     private String workspacePath;
     private NaixtPluginSettingsView settings;
 
-    public void init(AgentChatRequest request) {
+    public void init(AgentChatRequest request, Channel<AgentChatResponse> channel) {
         this.settings = request.settings;
         this.workspacePath = request.editInfo.workspacePath;
         var vectorStorePath = Paths.get(workspacePath).resolve(".naixt/embeddings.bin");
         if (!vectorStorePath.toFile().exists()) {
-            try {
-                Files.createDirectories(vectorStorePath.getParent());
-                Files.createFile(vectorStorePath);
-                var fileTree = IdeUtils.getDirFileTree(workspacePath, workspacePath, true);
-                var chunks = new RecursiveCharacterTextSplitter().split(fileTree);
-                var embeddingTexts = chunks.stream().map(TextChunk::embeddingText).toList();
-                var rsp = llmProvider.embeddings(new EmbeddingRequest(embeddingTexts));
-                var documents = rsp.embeddings.stream().map(v -> new Document(v.text, v.embedding, null)).toList();
-                HnswLibVectorStore.build(HnswConfig.of(vectorStorePath.toString()), documents);
-            } catch (Exception e) {
-                throw new RuntimeException("Init workspace failed: ", e);
-            }
+            initVectorStore(vectorStorePath);
         }
         if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
             var mcpServerConfigs = setupMcpServerConfigs(request);
@@ -87,31 +78,45 @@ public class NaixtAgentService {
         }
         this.isInitialized = true;
         // todo: init language server if in cloud env
-        logger.info("initialized agent service with workspace: {}", workspacePath);
-    }
-
-    private static ArrayList<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
-        var mcpServerConfigs = new ArrayList<MCPServerConfig>();
-        if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
-            if (request.settings.atlassianMcpSetting == null || request.settings.atlassianMcpSetting.url == null) throw new RuntimeException("atlassian mcp setting is required when jira is enabled.");
-            mcpServerConfigs.add(new MCPServerConfig(request.settings.atlassianMcpSetting.url, "atlassian-agent", "fetch information from atlassian products like jira and wiki"));
+        if (channel != null) {
+            sendInitMessage(request, channel);
+            addMessageUpdatedEventListener(channel);
         }
-        return mcpServerConfigs.isEmpty() ? null : mcpServerConfigs;
     }
 
     public void chatSse(AgentChatRequest request, Channel<AgentChatResponse> channel) {
-        codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> {
-            if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
-            if (message.name.equals(codingAgentGroup.getModerator().getName())) {
-                var p = codingAgentGroup.getPlanning().localPlanning(message.content, DefaultPlanning.DefaultAgentPlanningResult.class);
-                channel.send(AgentChatResponse.of(message.name + ": " + p.planning));
-            } else {
-                channel.send(AgentChatResponse.of(message.name + ": " + buildContent(message)));
-            }
-        });
-        var rsp = chat(request);
+        var rsp = chat(request, channel);
         rsp.groupFinished = true;
         channel.send(rsp);
+    }
+
+    public AgentChatResponse chat(AgentChatRequest request, Channel<AgentChatResponse> channel) {
+        request.settings.model = Strings.strip(request.settings.model);
+        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath) || settingChanged(request.settings)) {
+            init(request, channel);
+        }
+        var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
+        try {
+            var response = toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
+            response.text = "coding-agent:\n" + response.text;
+            return response;
+        } catch (Exception e) {
+            logger.warn("Not coding result: {}", rsp);
+            return AgentChatResponse.of(rsp);
+        }
+    }
+
+    public void clear() {
+        if (codingAgentGroup == null) return;
+        codingAgentGroup.clearShortTermMemory();
+    }
+
+    public void approved(AgentApproveRequest request) {
+        executor.submit("do-change", () -> request.fileContents.forEach(fileContent -> IdeUtils.doChange(request.workspacePath, fileContent)));
+    }
+
+    public AgentSuggestionResponse suggestion(AgentSuggestionRequest request) {
+        return AgentSuggestionResponse.of(List.of(TaskSuggestionAgent.of(llmProvider, request.settings.model).run("", buildContext(request.editInfo)).split("\n")));
     }
 
     private boolean settingChanged(NaixtPluginSettingsView settings) {
@@ -126,42 +131,60 @@ public class NaixtAgentService {
     }
 
     private String buildContent(Message message) {
-        return message.content == null ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
+        return Strings.isBlank(message.content) ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
-    public AgentChatResponse chat(AgentChatRequest request) {
-        request.settings.model = Strings.strip(request.settings.model);
-        if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath) || settingChanged(request.settings)) {
-            init(request);
-        }
-        var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
+    private void initVectorStore(Path vectorStorePath) {
         try {
-            var response = toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
-            response.text = "coding-agent:\n" + response.text;
-            return response;
+            Files.createDirectories(vectorStorePath.getParent());
+            Files.createFile(vectorStorePath);
+            var fileTree = IdeUtils.getDirFileTree(workspacePath, workspacePath, true);
+            var chunks = new RecursiveCharacterTextSplitter().split(fileTree);
+            var embeddingTexts = chunks.stream().map(TextChunk::embeddingText).toList();
+            var rsp = llmProvider.embeddings(new EmbeddingRequest(embeddingTexts));
+            var documents = rsp.embeddings.stream().map(v -> new Document(v.text, v.embedding, null)).toList();
+            HnswLibVectorStore.build(HnswConfig.of(vectorStorePath.toString()), documents);
         } catch (Exception e) {
-            logger.warn("Not coding result: {}", rsp);
-            return AgentChatResponse.of(rsp);
+            throw new RuntimeException("Init workspace failed: ", e);
         }
+    }
+
+    private void addMessageUpdatedEventListener(Channel<AgentChatResponse> channel) {
+        codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
+        codingAgentGroup.getAgentByName("coding-agent-group").addMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
+    }
+
+    private void sendInitMessage(AgentChatRequest request, Channel<AgentChatResponse> channel) {
+        var rsp = AgentChatResponse.of(Strings.format("Initialized\nAgent service with workspace: {}\nModel: {}\nPlanning Model: {}\n", workspacePath, request.settings.model, request.settings.planningModel));
+        if (request.settings.atlassianEnabled) {
+            rsp.text += Strings.format("Atlassian enabled: {}\n", request.settings.atlassianMcpSetting.url);
+        }
+        channel.send(rsp);
+    }
+
+    public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, Message message) {
+        if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
+        if (message.name.equals(codingAgentGroup.getModerator().getName())) {
+            var p = codingAgentGroup.getPlanning().localPlanning(message.content, DefaultPlanningResult.class);
+            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), p.planning)));
+        } else {
+            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), buildContent(message))));
+        }
+    }
+
+    private static ArrayList<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
+        var mcpServerConfigs = new ArrayList<MCPServerConfig>();
+        if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
+            if (request.settings.atlassianMcpSetting == null || request.settings.atlassianMcpSetting.url == null) throw new RuntimeException("atlassian mcp setting is required when jira is enabled.");
+            mcpServerConfigs.add(new MCPServerConfig(request.settings.atlassianMcpSetting.url, "atlassian-agent", "fetch information from atlassian products like jira and wiki"));
+        }
+        return mcpServerConfigs.isEmpty() ? null : mcpServerConfigs;
     }
 
     private AgentChatResponse toRsp(CodingAgentGroup.CodingResponse codingResponse) {
         var rsp = AgentChatResponse.of(codingResponse.text);
         rsp.fileContents = codingResponse.fileContents;
         return rsp;
-    }
-
-    public void clear() {
-        if (codingAgentGroup == null) return;
-        codingAgentGroup.clearShortTermMemory();
-    }
-
-    public void approved(AgentApproveRequest request) {
-        executor.submit("do-change", () -> request.fileContents.forEach(fileContent -> IdeUtils.doChange(request.workspacePath, fileContent)));
-    }
-
-    public AgentSuggestionResponse suggestion(AgentSuggestionRequest request) {
-        return AgentSuggestionResponse.of(List.of(TaskSuggestionAgent.of(llmProvider, request.settings.model).run("", buildContext(request.editInfo)).split("\n")));
     }
 
     private Map<String, Object> buildContext(CurrentEditInfoView editInfo) {

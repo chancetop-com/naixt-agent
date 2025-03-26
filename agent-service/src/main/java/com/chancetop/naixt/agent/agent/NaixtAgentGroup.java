@@ -3,16 +3,13 @@ package com.chancetop.naixt.agent.agent;
 import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.Node;
-import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
+import ai.core.agent.handoff.HandoffType;
 import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.mcp.client.MCPClientService;
 import ai.core.mcp.client.MCPServerConfig;
 import ai.core.persistence.PersistenceProvider;
-import ai.core.tool.function.Functions;
 import ai.core.tool.mcp.MCPToolCalls;
-import com.chancetop.naixt.agent.service.LanguageServerToolingService;
-import core.framework.util.Lists;
 import core.framework.util.Strings;
 
 import java.util.ArrayList;
@@ -59,6 +56,8 @@ public class NaixtAgentGroup {
 
         var goal = """
         naixt-agent-group is a group of agents that help user to analysis requirement by fetch information from atlassian products and write code for it.
+        If we got the requirement from atlassian, please provide the requirement analysis detail result of requirement-agent to coding-agent-group for coding.
+        If the coding-agent finished coding, task completed.
         """;
 
         List<Node<?>> agents = new ArrayList<>(List.of(requirementAgent, codingAgentGroup));
@@ -68,12 +67,17 @@ public class NaixtAgentGroup {
         }
         var moderatorAgent = moderatorAgent(config.llmProvider(), goal, agents, config.model());
 
+        agents.stream().filter(v -> v.getName().contains("atlassian")).findFirst().ifPresent(v -> v.setNext(requirementAgent));
+        requirementAgent.setNext(codingAgentGroup);
+
         return AgentGroup.builder()
                 .agents(agents)
                 .name("naixt-agent-group")
                 .description(goal)
                 .persistenceProvider(config.persistenceProvider())
                 .moderator(moderatorAgent)
+                .maxRound(3)
+                .handoffType(HandoffType.HYBRID)
                 .llmProvider(config.llmProvider()).build();
     }
 

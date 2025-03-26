@@ -17,7 +17,7 @@ public class NaixtAgentWebServiceImpl implements NaixtAgentWebService {
 
     @Override
     public AgentChatResponse chat(AgentChatRequest request) {
-        return naixtAgentService.chat(request);
+        return naixtAgentService.chat(request, null);
     }
 
     @Override

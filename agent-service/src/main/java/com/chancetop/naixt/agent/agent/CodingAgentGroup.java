@@ -102,6 +102,11 @@ public class CodingAgentGroup {
                         For example, you can provide the workspace path, file tree, and the content of a file.
                         When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
                         If the file tree text is too long to handle, please get file tree layer by layer according to the directory hierarchy.
+                        If you are list file tree for java project, please consider these fixed paths to avoid wasting time searching through layers here as well:
+                        - src/main/java - for java source code
+                        - src/test/java - for java test code
+                        - src/main/resources - for resources
+                        If the non-recursive method of obtaining the directory tree exceeds 3 attempts, please consider using the recursive method.
                         """)
                 .toolCalls(Functions.from(new WorkspaceToolingService()))
                 .promptTemplate("""
