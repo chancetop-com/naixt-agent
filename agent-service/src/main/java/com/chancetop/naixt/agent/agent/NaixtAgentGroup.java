@@ -11,32 +11,41 @@ import ai.core.mcp.client.MCPServerConfig;
 import ai.core.persistence.PersistenceProvider;
 import ai.core.tool.mcp.MCPToolCalls;
 import core.framework.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author stephen
  */
 public class NaixtAgentGroup {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NaixtAgentGroup.class);
 
     public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
         return DefaultModeratorAgent.of(llmProvider, model, goal, agents, CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE);
     }
 
     public static Agent mcpAgent(LLMProvider llmProvider, MCPServerConfig config) {
-        var mcpService = new MCPClientService(config);
-        return Agent.builder()
-                .name(config.name())
-                .description(config.description())
-                .systemPrompt(Strings.format("""
-                        You are assistant that helps users to use tools of {}.
-                        """, config.name()))
-                .promptTemplate("""
-                        query:
-                        """)
-                .toolCalls(MCPToolCalls.from(mcpService))
-                .llmProvider(llmProvider).build();
+        try {
+            var mcpService = new MCPClientService(config);
+            return Agent.builder()
+                    .name(config.name())
+                    .description(config.description())
+                    .systemPrompt(Strings.format("""
+                            You are assistant that helps users to use tools of {}.
+                            """, config.name()))
+                    .promptTemplate("""
+                            query:
+                            """)
+                    .toolCalls(MCPToolCalls.from(mcpService))
+                    .llmProvider(llmProvider).build();
+        } catch (Exception e) {
+            LOGGER.warn("Build MCP Agent failed: {}", e.getMessage());
+            return null;
+        }
     }
 
     public static AgentGroup of(NaixtAgentGroupConfig config) {
@@ -55,14 +64,14 @@ public class NaixtAgentGroup {
         var codingAgentGroup = CodingAgentGroup.of(config.llmProvider(), config.persistenceProvider(), config.model(), config.planningModel(), config.vectorStorePath());
 
         var goal = """
-        naixt-agent-group is a group of agents that help user to analysis requirement by fetch information from atlassian products and write code for it.
-        If we got the requirement from atlassian, please provide the requirement analysis detail result of requirement-agent to coding-agent-group for coding.
-        If the coding-agent finished coding, task completed.
-        """;
+            naixt-agent-group is a group of agents that help user to analysis requirement by fetch information from atlassian products and write code for it.
+            If we got the requirement from atlassian, please provide the requirement analysis detail result of requirement-agent to coding-agent-group for coding.
+            If the coding-agent finished coding, task completed.
+            """;
 
         List<Node<?>> agents = new ArrayList<>(List.of(requirementAgent, codingAgentGroup));
         if (!config.mcpServerConfigs.isEmpty()) {
-            var mcpAgents = config.mcpServerConfigs.stream().map(c -> mcpAgent(config.llmProvider(), c)).toList();
+            var mcpAgents = config.mcpServerConfigs.stream().map(c -> mcpAgent(config.llmProvider(), c)).filter(Objects::nonNull).toList();
             agents.addAll(mcpAgents);
         }
         var moderatorAgent = moderatorAgent(config.llmProvider(), goal, agents, config.model());

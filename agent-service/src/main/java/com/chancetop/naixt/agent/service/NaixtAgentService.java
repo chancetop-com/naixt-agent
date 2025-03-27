@@ -120,8 +120,8 @@ public class NaixtAgentService {
     }
 
     private boolean settingChanged(NaixtPluginSettingsView settings) {
-        return (!this.settings.model.equalsIgnoreCase(settings.model))
-                || (!this.settings.planningModel.equalsIgnoreCase(settings.planningModel))
+        return !this.settings.model.equalsIgnoreCase(settings.model)
+                || !this.settings.planningModel.equalsIgnoreCase(settings.planningModel)
                 || this.settings.atlassianEnabled != settings.atlassianEnabled
                 || mcpConfigChanged(this.settings.atlassianMcpSetting);
     }
@@ -165,14 +165,14 @@ public class NaixtAgentService {
     public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, Message message) {
         if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
         if (message.name.equals(codingAgentGroup.getModerator().getName())) {
-            var p = codingAgentGroup.getPlanning().localPlanning(message.content, DefaultPlanningResult.class);
+            var p = codingAgentGroup.getPlanning().explainPlanning(message.content, DefaultPlanningResult.class);
             channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), p.planning)));
         } else {
             channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), buildContent(message))));
         }
     }
 
-    private static ArrayList<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
+    private List<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
         var mcpServerConfigs = new ArrayList<MCPServerConfig>();
         if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
             if (request.settings.atlassianMcpSetting == null || request.settings.atlassianMcpSetting.url == null) throw new RuntimeException("atlassian mcp setting is required when jira is enabled.");

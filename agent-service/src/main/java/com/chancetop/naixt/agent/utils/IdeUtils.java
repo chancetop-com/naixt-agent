@@ -148,7 +148,7 @@ public class IdeUtils {
                     sb.append(newIndent).append(entryIsLast ? "└── " : "├── ").append(entry.getFileName().toString()).append("/\n");
                 }
             } else {
-                sb.append(newIndent).append(entryIsLast ? "└── " : "├── ").append(entry.getFileName().toString()).append("\n");
+                sb.append(newIndent).append(entryIsLast ? "└── " : "├── ").append(entry.getFileName().toString()).append('\n');
             }
         }
 
@@ -163,7 +163,7 @@ public class IdeUtils {
                 || "bin".equals(entry.toString());
     }
 
-    private static boolean filterFile(Path entry) {
+    public static boolean filterFile(Path entry) {
         return entry.toString().endsWith(".java")
                 || entry.toString().endsWith(".kt")
                 || entry.toString().endsWith(".xml")

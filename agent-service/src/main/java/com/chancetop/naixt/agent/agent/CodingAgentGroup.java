@@ -88,6 +88,7 @@ public class CodingAgentGroup {
                     User's query:
                     """, CODING_CONTEXT_VARIABLE_TEMPLATE))
                 .model(model)
+                .useGroupContext(true)
                 .formatter(new DefaultJsonFormatter(true))
                 .llmProvider(llmProvider).build();
     }
