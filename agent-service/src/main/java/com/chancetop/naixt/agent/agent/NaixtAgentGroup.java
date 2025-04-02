@@ -4,6 +4,7 @@ import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.Node;
 import ai.core.agent.handoff.HandoffType;
+import ai.core.agent.handoff.handoffs.HybridAutoDirectHandoff;
 import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.mcp.client.MCPClientService;
@@ -84,7 +85,7 @@ public class NaixtAgentGroup {
                 .name("naixt-agent-group")
                 .description(goal)
                 .persistenceProvider(config.persistenceProvider())
-                .moderator(moderatorAgent)
+                .handoff(new HybridAutoDirectHandoff(moderatorAgent))
                 .maxRound(3)
                 .handoffType(HandoffType.HYBRID)
                 .llmProvider(config.llmProvider()).build();

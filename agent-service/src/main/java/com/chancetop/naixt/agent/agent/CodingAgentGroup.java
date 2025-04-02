@@ -4,6 +4,7 @@ import ai.core.agent.Agent;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.Node;
 import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
+import ai.core.agent.handoff.handoffs.AutoHandoff;
 import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
@@ -39,6 +40,7 @@ public class CodingAgentGroup {
     public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
         return DefaultModeratorAgent.of(llmProvider, model, goal, agents, CODING_CONTEXT_VARIABLE_TEMPLATE);
     }
+
     public static Agent codingAgent(LLMProvider llmProvider, String model) {
         return Agent.builder().name("coding-agent")
                 .description("coding-agent is an agent that helps users write code.")
@@ -132,7 +134,7 @@ public class CodingAgentGroup {
                 .name("coding-agent-group")
                 .description(goal)
                 .agents(agents)
-                .moderator(moderatorAgent(llmProvider, goal, agents, planningModel))
+                .handoff(new AutoHandoff(moderatorAgent(llmProvider, goal, agents, planningModel)))
                 .persistenceProvider(persistenceProvider)
                 .maxRound(8)
                 .llmProvider(llmProvider).build();

@@ -3,6 +3,7 @@ package com.chancetop.naixt.agent.service;
 import ai.core.agent.AgentGroup;
 import ai.core.agent.AgentRole;
 import ai.core.agent.Node;
+import ai.core.agent.handoff.handoffs.HybridAutoDirectHandoff;
 import ai.core.agent.planning.plannings.DefaultPlanningResult;
 import ai.core.document.Document;
 import ai.core.document.TextChunk;
@@ -145,13 +146,12 @@ public class NaixtAgentService {
             var documents = rsp.embeddings.stream().map(v -> new Document(v.text, v.embedding, null)).toList();
             HnswLibVectorStore.build(HnswConfig.of(vectorStorePath.toString()), documents);
         } catch (Exception e) {
-            throw new RuntimeException("Init workspace failed: ", e);
+            logger.warn("Init workspace failed: ", e);
         }
     }
 
     private void addMessageUpdatedEventListener(Channel<AgentChatResponse> channel) {
         codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
-        codingAgentGroup.getAgentByName("coding-agent-group").addMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
     }
 
     private void sendInitMessage(AgentChatRequest request, Channel<AgentChatResponse> channel) {
@@ -164,7 +164,7 @@ public class NaixtAgentService {
 
     public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, Message message) {
         if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
-        if (message.name.equals(codingAgentGroup.getModerator().getName())) {
+        if (message.name.equals(((HybridAutoDirectHandoff) codingAgentGroup.getHandoff()).getAutoHandoff().moderator().getName())) {
             var p = codingAgentGroup.getPlanning().explainPlanning(message.content, DefaultPlanningResult.class);
             channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), p.planning)));
         } else {
