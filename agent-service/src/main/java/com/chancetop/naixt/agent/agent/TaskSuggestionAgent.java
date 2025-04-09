@@ -2,6 +2,7 @@ package com.chancetop.naixt.agent.agent;
 
 import ai.core.agent.Agent;
 import ai.core.llm.LLMProvider;
+import core.framework.util.Strings;
 
 /**
  * @author stephen
@@ -25,19 +26,10 @@ public class TaskSuggestionAgent {
                         - Resolve the errors
                         - Optimize the code
                         """)
-                .promptTemplate("""
-                        Workspace information:
-                        Workspace path: {{workspace_path}}
-                        Workspace file tree: {{workspace_file_tree}}
-                        User current editor file {{current_file_path}}'s content:
-                        ```
-                        {{current_file_content}}
-                        ```
-                        User current editor file's highlighted errors:
-                        {{current_file_diagnostic}}
-                        User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
-                        
-                        """)
+                .promptTemplate(Strings.format("""
+                        {}
+                        User query:
+                        """, CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE))
                 .model(model)
                 .llmProvider(llmProvider).build();
     }

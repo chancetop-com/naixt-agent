@@ -6,11 +6,10 @@ import ai.core.agent.Node;
 import ai.core.agent.formatter.formatters.DefaultJsonFormatter;
 import ai.core.agent.handoff.handoffs.AutoHandoff;
 import ai.core.defaultagents.DefaultModeratorAgent;
+import ai.core.defaultagents.DefaultShellCommandAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
-import ai.core.tool.function.Functions;
 import com.chancetop.naixt.agent.api.naixt.FileContent;
-import com.chancetop.naixt.agent.service.WorkspaceToolingService;
 import core.framework.api.json.Property;
 import core.framework.api.validate.NotNull;
 import core.framework.util.Strings;
@@ -26,15 +25,16 @@ public class CodingAgentGroup {
     private static final Logger LOGGER = LoggerFactory.getLogger(CodingAgentGroup.class);
     public static final String CODING_CONTEXT_VARIABLE_TEMPLATE = """
             Workspace context, null or empty if not provided:
-            Workspace path: {{workspace_path}}
-            Workspace file tree: {{workspace_file_tree}}
-            User current editor file {{current_file_path}}'s content:
+            System: {{{system_environment}}}
+            Workspace path: {{{workspace_path}}}
+            Workspace file tree: {{{workspace_file_tree}}}
+            User current editor file {{{current_file_path}}}'s content:
             ```
-            {{current_file_content}}
+            {{{current_file_content}}}
             ```
             User current editor position: line: {{current_line_number}}, column: {{current_column_number}}
             User current editor file's highlighted errors:
-            {{current_file_diagnostic}}
+            {{{current_file_diagnostic}}}
             """;
 
     public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
@@ -97,33 +97,33 @@ public class CodingAgentGroup {
 
     public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, String model, String planningModel, String vectorStorePath) {
         var codingAgent = codingAgent(llmProvider, model);
-        var workspaceAgent = Agent.builder()
-                .name("workspace-agent")
-                .description("workspace-agent is an agent that provide project's workspace information for coding.")
-                .systemPrompt("""
-                        You are an assistant that provide the project's workspace information for coding.
-                        For example, you can provide the workspace path, file tree, and the content of a file.
-                        When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
-                        If the file tree text is too long to handle, please get file tree layer by layer according to the directory hierarchy.
-                        If you are list file tree for java project, please consider these fixed paths to avoid wasting time searching through layers here as well:
-                        - src/main/java - for java source code
-                        - src/test/java - for java test code
-                        - src/main/resources - for resources
-                        If the non-recursive method of obtaining the directory tree exceeds 3 attempts, please consider using the recursive method.
-                        """)
-                .toolCalls(Functions.from(new WorkspaceToolingService()))
-                .promptTemplate("""
-                        Workspace path: {{workspace_path}}
-                        query:
-                        """)
-                .llmProvider(llmProvider).build();
-        List<Node<?>> agents = List.of(codingAgent, workspaceAgent);
+//        var workspaceAgent = Agent.builder()
+//                .name("workspace-agent")
+//                .description("workspace-agent is an agent that provide project's workspace information for coding.")
+//                .systemPrompt("""
+//                        You are an assistant that provide the project's workspace information for coding.
+//                        For example, you can provide the workspace path, file tree, and the content of a file.
+//                        When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
+//                        If the file tree text is too long to handle, please get file tree layer by layer according to the directory hierarchy.
+//                        If you are list file tree for java project, please consider these fixed paths to avoid wasting time searching through layers here as well:
+//                        - src/main/java - for java source code
+//                        - src/test/java - for java test code
+//                        - src/main/resources - for resources
+//                        If the non-recursive method of obtaining the directory tree exceeds 3 attempts, please consider using the recursive method.
+//                        """)
+//                .toolCalls(Functions.from(new WorkspaceToolingService()))
+//                .promptTemplate("""
+//                        Workspace path: {{workspace_path}}
+//                        query:
+//                        """)
+//                .llmProvider(llmProvider).build();
+        List<Node<?>> agents = List.of(codingAgent, DefaultShellCommandAgent.of(llmProvider, List.of("cat", "ls", "ripgrep", "tre")));
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
                 We only need to focus on generating code, no need to confirm the modification or verify the content.
                 We need to analysis the user's query to choose the correct files to modify, don't always assume that the user's requirement can be solved by modifying the current file.
-                Ask the workspace-agent if we need more information about the workspace like file tree or file content.
-                Read the conversation if the file content already provided by the workspace-agent or is user's current edit file.
+                Use shell-command-agent if we need more information about the workspace like file tree or file content.
+                Read the conversation if the file content already provided by the shell-command-agent or is user's current edit file.
                 We need to carefully analyze the requirements and try to modify or add files according to the existing code structure, rather than directly starting to add new files.
                 Make sure the coding-agent is the last agent to play.
                 """;

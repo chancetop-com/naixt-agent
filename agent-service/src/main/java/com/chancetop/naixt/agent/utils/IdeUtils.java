@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.logging.Logger;
 
 /**
@@ -17,6 +18,18 @@ import java.util.logging.Logger;
  */
 public class IdeUtils {
     private static final Logger LOGGER = Logger.getLogger(IdeUtils.class.getName());
+
+    public static String getSystemVersion() {
+        var osName = System.getProperty("os.name").toLowerCase(Locale.getDefault());
+        if (osName.contains("win")) {
+            return "windows";
+        } else if (osName.contains("nix") || osName.contains("nux") || osName.contains("aix")) {
+            return "linux";
+        } else if (osName.contains("mac")) {
+            return "mac";
+        }
+        return "unknown";
+    }
 
     public static String getFileContent(String workspacePath, String path) {
         if (Strings.isBlank(path)) return "Path is blank.";

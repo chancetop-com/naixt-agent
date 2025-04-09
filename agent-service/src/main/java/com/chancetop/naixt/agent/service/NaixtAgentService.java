@@ -166,10 +166,14 @@ public class NaixtAgentService {
         if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
         if (message.name.equals(((HybridAutoDirectHandoff) codingAgentGroup.getHandoff()).getAutoHandoff().moderator().getName())) {
             var p = codingAgentGroup.getPlanning().explainPlanning(message.content, DefaultPlanningResult.class);
-            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), p.planning)));
+            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, getAgentGroupName(message, node.getName()), p.planning)));
         } else {
-            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, node.getName(), buildContent(message))));
+            channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, getAgentGroupName(message, node.getName()), buildContent(message))));
         }
+    }
+
+    private String getAgentGroupName(Message message, String name) {
+        return message.groupName != null ? message.groupName : message.agentName != null ? message.agentName : name;
     }
 
     private List<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
@@ -195,6 +199,7 @@ public class NaixtAgentService {
         context.put("current_line_number", editInfo.currentLineNumber);
         context.put("current_column_number", editInfo.currentColumnNumber);
         context.put("current_file_diagnostic", editInfo.currentFileDiagnostic);
+        context.put("system_environment", IdeUtils.getSystemVersion());
         return context;
     }
 }
