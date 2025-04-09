@@ -117,7 +117,7 @@ public class CodingAgentGroup {
 //                        query:
 //                        """)
 //                .llmProvider(llmProvider).build();
-        List<Node<?>> agents = List.of(codingAgent, DefaultShellCommandAgent.of(llmProvider, List.of("cat", "ls", "ripgrep", "tre")));
+        List<Node<?>> agents = List.of(codingAgent, DefaultShellCommandAgent.of(llmProvider, List.of("cat", "ripgrep", "tre")));
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
                 We only need to focus on generating code, no need to confirm the modification or verify the content.
