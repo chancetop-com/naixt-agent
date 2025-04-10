@@ -6,12 +6,16 @@ import core.framework.util.Strings;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.logging.Logger;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * @author stephen
@@ -29,6 +33,42 @@ public class IdeUtils {
             return "mac";
         }
         return "unknown";
+    }
+
+    public static List<String> searchFileByName(String workspacePath, String pattern, Boolean originalRegex, Boolean originalRecursive) {
+        var regex = originalRegex;
+        var recursive = originalRecursive;
+        if (regex == null) regex = false;
+        if (recursive == null) recursive = true;
+
+        var result = new ArrayList<String>();
+        var startDir = Paths.get(workspacePath);
+
+        if (!Files.isDirectory(startDir)) {
+            return List.of();
+        }
+
+        var fs = FileSystems.getDefault();
+        var syntax = regex ? "regex:" : "glob:";
+        PathMatcher matcher;
+        try {
+            matcher = fs.getPathMatcher(syntax + pattern);
+        } catch (PatternSyntaxException e) {
+            return List.of();
+        }
+
+        try (var paths = recursive ? Files.walk(startDir) : Files.list(startDir)) {
+            paths.filter(v -> !isGitIgnore(v))
+                    .filter(Files::isRegularFile)
+                    .filter(IdeUtils::filterFile)
+                    .filter(v -> matcher.matches(v.getFileName()))
+                    .map(v -> v.toAbsolutePath().toString())
+                    .forEach(result::add);
+        } catch (IOException e) {
+            return List.of();
+        }
+
+        return result;
     }
 
     public static String getFileContent(String workspacePath, String path) {
@@ -101,7 +141,9 @@ public class IdeUtils {
         return absolutePath.toString();
     }
 
-    public static String getDirFileTree(String workspacePath, String path, Boolean recursive) {
+    public static String getDirFileTree(String workspacePath, String path, Boolean originalRecursive) {
+        var recursive = originalRecursive;
+        if (recursive == null) recursive = false;
         if (Strings.isBlank(path)) return "";
         try {
             var truePath = toAbsolutePath(workspacePath, path);

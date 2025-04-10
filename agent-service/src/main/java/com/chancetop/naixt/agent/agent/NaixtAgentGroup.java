@@ -62,7 +62,7 @@ public class NaixtAgentGroup {
                         """)
                 .llmProvider(config.llmProvider()).build();
 
-        var codingAgentGroup = CodingAgentGroup.of(config.llmProvider(), config.persistenceProvider(), config.model(), config.planningModel(), config.vectorStorePath());
+        var codingAgentGroup = CodingAgentGroup.of(config.llmProvider(), config.persistenceProvider(), config.model(), config.planningModel(), config.vectorStorePath(), config.workspacePath());
 
         var goal = """
             naixt-agent-group is a group of agents that help user to analysis requirement by fetch information from atlassian products and write code for it.
@@ -96,6 +96,7 @@ public class NaixtAgentGroup {
                                         String model,
                                         String planningModel,
                                         String vectorStorePath,
+                                        String workspacePath,
                                         List<MCPServerConfig> mcpServerConfigs) {
 
     }

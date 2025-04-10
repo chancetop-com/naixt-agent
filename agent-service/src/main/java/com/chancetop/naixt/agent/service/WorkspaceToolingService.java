@@ -8,9 +8,9 @@ import com.chancetop.naixt.agent.utils.IdeUtils;
  * @author stephen
  */
 public class WorkspaceToolingService {
-    private String workspacePath;
+    private final String workspacePath;
 
-    public void setWorkspacePath(String workspacePath) {
+    public WorkspaceToolingService(String workspacePath) {
         this.workspacePath = workspacePath;
     }
 
@@ -35,8 +35,27 @@ public class WorkspaceToolingService {
                     required = true) String dir,
             @CoreAiParameter(
                     name = "recursive",
-                    description = "whether to get the file tree recursively, if we encounter a problem with the context length being too long, try setting this parameter to false. "
+                    description = "whether to get the file tree recursively, default is false, if we encounter a problem with the context length being too long, try setting this parameter to false. "
             ) Boolean recursive) {
         return IdeUtils.getDirFileTree(workspacePath, dir, recursive);
+    }
+
+    @CoreAiMethod(
+            name = "search_file_by_name",
+            description = "tool to search file by name, search in the directory recursively and support regex")
+    public String searchFileByName(
+            @CoreAiParameter(
+                    name = "pattern",
+                    description = "the file name, support regex",
+                    required = true) String pattern,
+            @CoreAiParameter(
+                    name = "regex",
+                    description = "is regex, default is false"
+            ) Boolean regex,
+            @CoreAiParameter(
+                    name = "recursive",
+                    description = "whether to get the file tree recursively, default is true."
+            ) Boolean recursive) {
+        return String.join(",", IdeUtils.searchFileByName(workspacePath, pattern, regex, recursive));
     }
 }

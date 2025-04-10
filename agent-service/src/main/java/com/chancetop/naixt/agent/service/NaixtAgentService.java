@@ -73,9 +73,10 @@ public class NaixtAgentService {
                     request.settings.model,
                     request.settings.planningModel,
                     vectorStorePath.toString(),
+                    this.workspacePath,
                     mcpServerConfigs));
         } else {
-            this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), request.settings.model, request.settings.planningModel, vectorStorePath.toString());
+            this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), request.settings.model, request.settings.planningModel, vectorStorePath.toString(), workspacePath);
         }
         this.isInitialized = true;
         // todo: init language server if in cloud env

@@ -9,13 +9,17 @@ import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.defaultagents.DefaultShellCommandAgent;
 import ai.core.llm.LLMProvider;
 import ai.core.persistence.PersistenceProvider;
+import ai.core.tool.function.Functions;
+import ai.core.utils.ShellUtil;
 import com.chancetop.naixt.agent.api.naixt.FileContent;
+import com.chancetop.naixt.agent.service.WorkspaceToolingService;
 import core.framework.api.json.Property;
 import core.framework.api.validate.NotNull;
 import core.framework.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -95,35 +99,36 @@ public class CodingAgentGroup {
                 .llmProvider(llmProvider).build();
     }
 
-    public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, String model, String planningModel, String vectorStorePath) {
+    public static AgentGroup of(LLMProvider llmProvider, PersistenceProvider persistenceProvider, String model, String planningModel, String vectorStorePath, String workspacePath) {
         var codingAgent = codingAgent(llmProvider, model);
-//        var workspaceAgent = Agent.builder()
-//                .name("workspace-agent")
-//                .description("workspace-agent is an agent that provide project's workspace information for coding.")
-//                .systemPrompt("""
-//                        You are an assistant that provide the project's workspace information for coding.
-//                        For example, you can provide the workspace path, file tree, and the content of a file.
-//                        When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
-//                        If the file tree text is too long to handle, please get file tree layer by layer according to the directory hierarchy.
-//                        If you are list file tree for java project, please consider these fixed paths to avoid wasting time searching through layers here as well:
-//                        - src/main/java - for java source code
-//                        - src/test/java - for java test code
-//                        - src/main/resources - for resources
-//                        If the non-recursive method of obtaining the directory tree exceeds 3 attempts, please consider using the recursive method.
-//                        """)
-//                .toolCalls(Functions.from(new WorkspaceToolingService()))
-//                .promptTemplate("""
-//                        Workspace path: {{workspace_path}}
-//                        query:
-//                        """)
-//                .llmProvider(llmProvider).build();
-        List<Node<?>> agents = List.of(codingAgent, DefaultShellCommandAgent.of(llmProvider, List.of("cat", "ripgrep", "tre")));
+        var workspaceAgent = Agent.builder()
+                .name("workspace-agent")
+                .description("workspace-agent is an agent that provide project's workspace information for coding.")
+                .systemPrompt("""
+                        You are an assistant that provide the project's workspace information for coding.
+                        For example, you can provide the workspace path, file tree, and the content of a file.
+                        When using the 'get file tree' tool, use the 'recursive' parameter cautiously. Unless your query explicitly tells you or you believe it is necessary, please set this parameter to false.
+                        If the file tree text is too long to handle, please get file tree layer by layer according to the directory hierarchy.
+                        If you are list file tree for java project, please consider these fixed paths to avoid wasting time searching through layers here as well:
+                        - src/main/java - for java source code
+                        - src/test/java - for java test code
+                        - src/main/resources - for resources
+                        If the non-recursive method of obtaining the directory tree exceeds 3 attempts, please consider using the recursive method.
+                        """)
+                .toolCalls(Functions.from(new WorkspaceToolingService(workspacePath)))
+                .promptTemplate("""
+                        Workspace path: {{workspace_path}}
+                        query:
+                        """)
+                .llmProvider(llmProvider).build();
+        List<Node<?>> agents = new ArrayList<>(List.of(codingAgent, workspaceAgent));
+        if (allCommandsExisted(List.of("npm"))) {
+            agents.add(DefaultShellCommandAgent.of(llmProvider, List.of("uv")));
+        }
         var goal = """
                 coding-agent-group is a group of agents that help user to write code.
                 We only need to focus on generating code, no need to confirm the modification or verify the content.
                 We need to analysis the user's query to choose the correct files to modify, don't always assume that the user's requirement can be solved by modifying the current file.
-                Use shell-command-agent if we need more information about the workspace like file tree or file content.
-                Read the conversation if the file content already provided by the shell-command-agent or is user's current edit file.
                 We need to carefully analyze the requirements and try to modify or add files according to the existing code structure, rather than directly starting to add new files.
                 Make sure the coding-agent is the last agent to play.
                 """;
@@ -138,6 +143,11 @@ public class CodingAgentGroup {
                 .persistenceProvider(persistenceProvider)
                 .maxRound(8)
                 .llmProvider(llmProvider).build();
+    }
+
+    private static boolean allCommandsExisted(List<String> strings) {
+        var os = ShellUtil.getSystemType();
+        return strings.stream().allMatch(v -> ShellUtil.isCommandExists(os, v));
     }
 
     public static class CodingResponse {
