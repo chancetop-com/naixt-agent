@@ -41,8 +41,8 @@ public class CodingAgentGroup {
             {{{current_file_diagnostic}}}
             """;
 
-    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
-        return DefaultModeratorAgent.of(llmProvider, model, goal, agents, CODING_CONTEXT_VARIABLE_TEMPLATE);
+    public static Agent moderatorAgent(LLMProvider llmProvider, String model) {
+        return DefaultModeratorAgent.of(llmProvider, model, "", CODING_CONTEXT_VARIABLE_TEMPLATE);
     }
 
     public static Agent codingAgent(LLMProvider llmProvider, String model) {
@@ -139,7 +139,7 @@ public class CodingAgentGroup {
                 .name("coding-agent-group")
                 .description(goal)
                 .agents(agents)
-                .handoff(new AutoHandoff(moderatorAgent(llmProvider, goal, agents, planningModel)))
+                .handoff(new AutoHandoff(moderatorAgent(llmProvider, planningModel)))
                 .persistenceProvider(persistenceProvider)
                 .maxRound(8)
                 .llmProvider(llmProvider).build();

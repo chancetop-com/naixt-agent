@@ -82,7 +82,6 @@ public class NaixtAgentService {
         // todo: init language server if in cloud env
         if (channel != null) {
             sendInitMessage(request, channel);
-            addMessageUpdatedEventListener(channel);
         }
     }
 
@@ -97,6 +96,7 @@ public class NaixtAgentService {
         if (!isInitialized || !request.editInfo.workspacePath.equals(workspacePath) || settingChanged(request.settings)) {
             init(request, channel);
         }
+        if (channel != null) setMessageUpdatedEventListener(channel);
         var rsp = codingAgentGroup.run(request.query, buildContext(request.editInfo));
         try {
             var response = toRsp(JSON.fromJSON(CodingAgentGroup.CodingResponse.class, rsp));
@@ -151,8 +151,8 @@ public class NaixtAgentService {
         }
     }
 
-    private void addMessageUpdatedEventListener(Channel<AgentChatResponse> channel) {
-        codingAgentGroup.addMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
+    private void setMessageUpdatedEventListener(Channel<AgentChatResponse> channel) {
+        codingAgentGroup.setMessageUpdatedEventListener((agent, message) -> messageHandler(channel, agent, message));
     }
 
     private void sendInitMessage(AgentChatRequest request, Channel<AgentChatResponse> channel) {

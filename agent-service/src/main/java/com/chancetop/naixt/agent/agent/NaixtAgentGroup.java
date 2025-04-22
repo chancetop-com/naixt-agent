@@ -25,8 +25,8 @@ import java.util.Objects;
 public class NaixtAgentGroup {
     private static final Logger LOGGER = LoggerFactory.getLogger(NaixtAgentGroup.class);
 
-    public static Agent moderatorAgent(LLMProvider llmProvider, String goal, List<Node<?>> agents, String model) {
-        return DefaultModeratorAgent.of(llmProvider, model, goal, agents, CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE);
+    public static Agent moderatorAgent(LLMProvider llmProvider, String model) {
+        return DefaultModeratorAgent.of(llmProvider, model, "", CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE);
     }
 
     public static Agent mcpAgent(LLMProvider llmProvider, MCPServerConfig config) {
@@ -75,7 +75,7 @@ public class NaixtAgentGroup {
             var mcpAgents = config.mcpServerConfigs.stream().map(c -> mcpAgent(config.llmProvider(), c)).filter(Objects::nonNull).toList();
             agents.addAll(mcpAgents);
         }
-        var moderatorAgent = moderatorAgent(config.llmProvider(), goal, agents, config.model());
+        var moderatorAgent = moderatorAgent(config.llmProvider(), config.model());
 
         agents.stream().filter(v -> v.getName().contains("atlassian")).findFirst().ifPresent(v -> v.setNext(requirementAgent));
         requirementAgent.setNext(codingAgentGroup);
