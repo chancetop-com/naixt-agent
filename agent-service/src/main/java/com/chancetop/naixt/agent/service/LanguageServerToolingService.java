@@ -1,8 +1,8 @@
 package com.chancetop.naixt.agent.service;
 
 import ai.core.lsp.service.LanguageServerService;
-import ai.core.tool.function.annotation.CoreAiMethod;
-import ai.core.tool.function.annotation.CoreAiParameter;
+import ai.core.api.tool.function.CoreAiMethod;
+import ai.core.api.tool.function.CoreAiParameter;
 import core.framework.inject.Inject;
 
 /**

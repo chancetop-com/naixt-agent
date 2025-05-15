@@ -1,7 +1,7 @@
 package com.chancetop.naixt.agent.service;
 
-import ai.core.tool.function.annotation.CoreAiMethod;
-import ai.core.tool.function.annotation.CoreAiParameter;
+import ai.core.api.tool.function.CoreAiMethod;
+import ai.core.api.tool.function.CoreAiParameter;
 import com.chancetop.naixt.agent.utils.IdeUtils;
 
 /**

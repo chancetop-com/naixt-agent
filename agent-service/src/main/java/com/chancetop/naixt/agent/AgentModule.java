@@ -10,9 +10,6 @@ import com.chancetop.naixt.agent.service.NaixtAgentService;
 import com.chancetop.naixt.agent.service.NaixtService;
 import core.framework.http.HTTPMethod;
 import core.framework.module.Module;
-import core.framework.module.ServerSentEventConfig;
-
-import java.time.Duration;
 
 /**
  * @author stephen
@@ -25,7 +22,6 @@ public class AgentModule extends Module {
         bind(NaixtAgentService.class);
         api().service(NaixtWebService.class, bind(NaixtWebServiceImpl.class));
         api().service(NaixtAgentWebService.class, bind(NaixtAgentWebServiceImpl.class));
-        http().limitRate().add(ServerSentEventConfig.SSE_CONNECT_GROUP, 5000, 1000, Duration.ZERO);
         sse().listen(HTTPMethod.PUT, "/naixt/agent/chat-sse", AgentChatResponse.class, bind(NaixtAgentSSEListener.class));
     }
 }

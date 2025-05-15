@@ -10,7 +10,7 @@ import ai.core.document.TextChunk;
 import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
 import ai.core.llm.providers.AzureInferenceProvider;
 import ai.core.llm.providers.inner.EmbeddingRequest;
-import ai.core.llm.providers.inner.Message;
+import ai.core.llm.providers.inner.LLMMessage;
 import ai.core.mcp.client.MCPServerConfig;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import ai.core.rag.vectorstore.hnswlib.HnswConfig;
@@ -132,7 +132,7 @@ public class NaixtAgentService {
         return !this.settings.atlassianMcpSetting.url.equalsIgnoreCase(jiraMcpSetting.url);
     }
 
-    private String buildContent(Message message) {
+    private String buildContent(LLMMessage message) {
         return Strings.isBlank(message.content) ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
@@ -163,7 +163,7 @@ public class NaixtAgentService {
         channel.send(rsp);
     }
 
-    public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, Message message) {
+    public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, LLMMessage message) {
         if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
         if (message.name.equals(((HybridAutoDirectHandoff) codingAgentGroup.getHandoff()).getAutoHandoff().moderator().getName())) {
             var p = codingAgentGroup.getPlanning().explainPlanning(message.content, DefaultPlanningResult.class);
@@ -173,7 +173,7 @@ public class NaixtAgentService {
         }
     }
 
-    private String getAgentGroupName(Message message, String name) {
+    private String getAgentGroupName(LLMMessage message, String name) {
         return message.groupName != null ? message.groupName : message.agentName != null ? message.agentName : name;
     }
 
