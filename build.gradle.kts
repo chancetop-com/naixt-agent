@@ -93,7 +93,7 @@ project(":agent-service") {
     dependencies {
         implementation(project(":agent-service-interface"))
         implementation("com.chancetop:core-ai:${Versions.CORE_AI_VERSION}")
-        implementation("com.chancetop:core-ai-api:${Versions.CORE_AI_VERSION}")
-        implementation("com.chancetop:language-server-library:${Versions.CORE_AI_VERSION}")
+        implementation("com.chancetop:core-ai-api:${Versions.CORE_AI_API_VERSION}")
+        implementation("com.chancetop:language-server-library:${Versions.CORE_AI_LIBRARY_VERSION}")
     }
 }

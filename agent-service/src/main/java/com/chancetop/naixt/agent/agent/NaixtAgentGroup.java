@@ -7,10 +7,10 @@ import ai.core.agent.handoff.HandoffType;
 import ai.core.agent.handoff.handoffs.HybridAutoDirectHandoff;
 import ai.core.defaultagents.DefaultModeratorAgent;
 import ai.core.llm.LLMProvider;
-import ai.core.mcp.client.MCPClientService;
-import ai.core.mcp.client.MCPServerConfig;
+import ai.core.mcp.client.McpClientServerConfig;
+import ai.core.mcp.client.McpClientService;
 import ai.core.persistence.PersistenceProvider;
-import ai.core.tool.mcp.MCPToolCalls;
+import ai.core.tool.mcp.McpToolCalls;
 import core.framework.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +29,9 @@ public class NaixtAgentGroup {
         return DefaultModeratorAgent.of(llmProvider, model, "", CodingAgentGroup.CODING_CONTEXT_VARIABLE_TEMPLATE);
     }
 
-    public static Agent mcpAgent(LLMProvider llmProvider, MCPServerConfig config) {
+    public static Agent mcpAgent(LLMProvider llmProvider, McpClientServerConfig config) {
         try {
-            var mcpService = new MCPClientService(config);
+            var mcpService = new McpClientService(config);
             return Agent.builder()
                     .name(config.name())
                     .description(config.description())
@@ -41,7 +41,7 @@ public class NaixtAgentGroup {
                     .promptTemplate("""
                             query:
                             """)
-                    .toolCalls(MCPToolCalls.from(mcpService))
+                    .toolCalls(McpToolCalls.from(mcpService))
                     .llmProvider(llmProvider).build();
         } catch (Exception e) {
             LOGGER.warn("Build MCP Agent failed: {}", e.getMessage());
@@ -97,7 +97,7 @@ public class NaixtAgentGroup {
                                         String planningModel,
                                         String vectorStorePath,
                                         String workspacePath,
-                                        List<MCPServerConfig> mcpServerConfigs) {
+                                        List<McpClientServerConfig> mcpServerConfigs) {
 
     }
 }

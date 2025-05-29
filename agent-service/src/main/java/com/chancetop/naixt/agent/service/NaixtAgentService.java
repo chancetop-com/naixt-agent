@@ -1,17 +1,17 @@
 package com.chancetop.naixt.agent.service;
 
 import ai.core.agent.AgentGroup;
-import ai.core.agent.AgentRole;
 import ai.core.agent.Node;
 import ai.core.agent.handoff.handoffs.HybridAutoDirectHandoff;
 import ai.core.agent.planning.plannings.DefaultPlanningResult;
 import ai.core.document.Document;
 import ai.core.document.TextChunk;
 import ai.core.document.textsplitters.RecursiveCharacterTextSplitter;
-import ai.core.llm.providers.AzureInferenceProvider;
-import ai.core.llm.providers.inner.EmbeddingRequest;
-import ai.core.llm.providers.inner.LLMMessage;
-import ai.core.mcp.client.MCPServerConfig;
+import ai.core.llm.LLMProviders;
+import ai.core.llm.domain.EmbeddingRequest;
+import ai.core.llm.domain.Message;
+import ai.core.llm.domain.RoleType;
+import ai.core.mcp.client.McpClientServerConfig;
 import ai.core.persistence.providers.TemporaryPersistenceProvider;
 import ai.core.rag.vectorstore.hnswlib.HnswConfig;
 import ai.core.rag.vectorstore.hnswlib.HnswLibVectorStore;
@@ -49,7 +49,7 @@ import java.util.Map;
 public class NaixtAgentService {
     private final Logger logger = LoggerFactory.getLogger(NaixtAgentService.class);
     @Inject
-    AzureInferenceProvider llmProvider;
+    LLMProviders llmProviders;
     @Inject
     Executor executor;
 
@@ -68,7 +68,7 @@ public class NaixtAgentService {
         if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
             var mcpServerConfigs = setupMcpServerConfigs(request);
             this.codingAgentGroup = NaixtAgentGroup.of(new NaixtAgentGroup.NaixtAgentGroupConfig(
-                    llmProvider,
+                    llmProviders.getProvider(),
                     new TemporaryPersistenceProvider(),
                     request.settings.model,
                     request.settings.planningModel,
@@ -76,7 +76,7 @@ public class NaixtAgentService {
                     this.workspacePath,
                     mcpServerConfigs));
         } else {
-            this.codingAgentGroup = CodingAgentGroup.of(llmProvider, new TemporaryPersistenceProvider(), request.settings.model, request.settings.planningModel, vectorStorePath.toString(), workspacePath);
+            this.codingAgentGroup = CodingAgentGroup.of(llmProviders.getProvider(), new TemporaryPersistenceProvider(), request.settings.model, request.settings.planningModel, vectorStorePath.toString(), workspacePath);
         }
         this.isInitialized = true;
         // todo: init language server if in cloud env
@@ -118,7 +118,7 @@ public class NaixtAgentService {
     }
 
     public AgentSuggestionResponse suggestion(AgentSuggestionRequest request) {
-        return AgentSuggestionResponse.of(List.of(TaskSuggestionAgent.of(llmProvider, request.settings.model).run("", buildContext(request.editInfo)).split("\n")));
+        return AgentSuggestionResponse.of(List.of(TaskSuggestionAgent.of(llmProviders.getProvider(), request.settings.model).run("", buildContext(request.editInfo)).split("\n")));
     }
 
     private boolean settingChanged(NaixtPluginSettingsView settings) {
@@ -132,7 +132,7 @@ public class NaixtAgentService {
         return !this.settings.atlassianMcpSetting.url.equalsIgnoreCase(jiraMcpSetting.url);
     }
 
-    private String buildContent(LLMMessage message) {
+    private String buildContent(Message message) {
         return Strings.isBlank(message.content) ? Strings.format("{}({})", message.toolCalls.getLast().function.name, message.toolCalls.getLast().function.arguments) : message.content;
     }
 
@@ -143,7 +143,7 @@ public class NaixtAgentService {
             var fileTree = IdeUtils.getDirFileTree(workspacePath, workspacePath, true);
             var chunks = new RecursiveCharacterTextSplitter().split(fileTree);
             var embeddingTexts = chunks.stream().map(TextChunk::embeddingText).toList();
-            var rsp = llmProvider.embeddings(new EmbeddingRequest(embeddingTexts));
+            var rsp = llmProviders.getProvider().embeddings(new EmbeddingRequest(embeddingTexts));
             var documents = rsp.embeddings.stream().map(v -> new Document(v.text, v.embedding, null)).toList();
             HnswLibVectorStore.build(HnswConfig.of(vectorStorePath.toString()), documents);
         } catch (Exception e) {
@@ -163,8 +163,8 @@ public class NaixtAgentService {
         channel.send(rsp);
     }
 
-    public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, LLMMessage message) {
-        if (message.role != AgentRole.ASSISTANT || message.name.equals("coding-agent")) return;
+    public void messageHandler(Channel<AgentChatResponse> channel, Node<?> node, Message message) {
+        if (message.role != RoleType.ASSISTANT || message.name.equals("coding-agent")) return;
         if (message.name.equals(((HybridAutoDirectHandoff) codingAgentGroup.getHandoff()).getAutoHandoff().moderator().getName())) {
             var p = codingAgentGroup.getPlanning().explainPlanning(message.content, DefaultPlanningResult.class);
             channel.send(AgentChatResponse.of(Strings.format("{}[{}]: {}", message.name, getAgentGroupName(message, node.getName()), p.planning)));
@@ -173,15 +173,15 @@ public class NaixtAgentService {
         }
     }
 
-    private String getAgentGroupName(LLMMessage message, String name) {
-        return message.groupName != null ? message.groupName : message.agentName != null ? message.agentName : name;
+    private String getAgentGroupName(Message message, String name) {
+        return message.getGroupName() != null ? message.getGroupName() : message.getAgentName() != null ? message.getAgentName() : name;
     }
 
-    private List<MCPServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
-        var mcpServerConfigs = new ArrayList<MCPServerConfig>();
+    private List<McpClientServerConfig> setupMcpServerConfigs(AgentChatRequest request) {
+        var mcpServerConfigs = new ArrayList<McpClientServerConfig>();
         if (request.settings.atlassianEnabled != null && request.settings.atlassianEnabled) {
             if (request.settings.atlassianMcpSetting == null || request.settings.atlassianMcpSetting.url == null) throw new RuntimeException("atlassian mcp setting is required when jira is enabled.");
-            mcpServerConfigs.add(new MCPServerConfig(request.settings.atlassianMcpSetting.url, "atlassian-agent", "fetch information from atlassian products like jira and wiki"));
+            mcpServerConfigs.add(new McpClientServerConfig(request.settings.atlassianMcpSetting.url, "", "atlassian-agent", "fetch information from atlassian products like jira and wiki"));
         }
         return mcpServerConfigs.isEmpty() ? null : mcpServerConfigs;
     }
